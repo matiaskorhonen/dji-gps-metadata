@@ -147,13 +147,13 @@ assign_positional_args 1 "${_positionals[@]}"
 
 set -e
 
+make=$_arg_make
+model=$_arg_model
+
 for filename in "${_arg_filename[@]}"
 do
   test -f "$filename" || die "We expected a file, got '$filename', bailing out."
   echo "Processing $filename"
-
-  make=$_arg_make
-  model=$_arg_model
 
   # shellcheck disable=SC2016
   coordinates=$(exiftool -ignoreMinorErrors -c %+.10f -p '${gpslatitude;s/([-+])/$1.("0"x(14-length $_))/e}${gpslongitude;s/([-+])/$1.("0"x(15-length $_))/e}' -s -s -s "$filename" | tr -d '\n')
@@ -180,7 +180,7 @@ EOF
   )
 
   echo "Creating temp dir"
-  tmpdir=$(mktemp -d -t dji-gps-metadata.XXXXXX)
+  tmpdir=$(mktemp -d -t dji-gps-metadata)
 
   echo "Creating metadata file"
   plistfile="$tmpdir/metadata.plist"
