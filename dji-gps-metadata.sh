@@ -2,6 +2,7 @@
 #
 # ARG_OPTIONAL_SINGLE([make],[m],[Device make],[DJI])
 # ARG_OPTIONAL_SINGLE([model],[d],[Device model],[Mini 2])
+# ARG_OPTIONAL_BOOLEAN([remove-original],[r],[Remove original MP4s after processing])
 # ARG_POSITIONAL_INF([filename],[source MP4 file],[1])
 # ARG_HELP([DJI GPS Metadata for Photos.app])
 # ARGBASH_GO()
@@ -23,7 +24,7 @@ die()
 
 begins_with_short_option()
 {
-  local first_option all_short_options='mdh'
+  local first_option all_short_options='mdrh'
   first_option="${1:0:1}"
   test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
 }
@@ -34,15 +35,17 @@ _arg_filename=('' )
 # THE DEFAULTS INITIALIZATION - OPTIONALS
 _arg_make="DJI"
 _arg_model="Mini 2"
+_arg_remove_original="off"
 
 
 print_help()
 {
   printf '%s\n' "DJI GPS Metadata for Photos.app"
-  printf 'Usage: %s [-m|--make <arg>] [-d|--model <arg>] [-h|--help] <filename-1> [<filename-2>] ... [<filename-n>] ...\n' "$0"
+  printf 'Usage: %s [-m|--make <arg>] [-d|--model <arg>] [-r|--(no-)remove-original] [-h|--help] <filename-1> [<filename-2>] ... [<filename-n>] ...\n' "$0"
   printf '\t%s\n' "<filename>: source MP4 file"
   printf '\t%s\n' "-m, --make: Device make (default: 'DJI')"
   printf '\t%s\n' "-d, --model: Device model (default: 'Mini 2')"
+  printf '\t%s\n' "-r, --remove-original, --no-remove-original: Remove original MP4s after processing (off by default)"
   printf '\t%s\n' "-h, --help: Prints help"
 }
 
@@ -75,6 +78,18 @@ parse_commandline()
         ;;
       -d*)
         _arg_model="${_key##-d}"
+        ;;
+      -r|--no-remove-original|--remove-original)
+        _arg_remove_original="on"
+        test "${1:0:5}" = "--no-" && _arg_remove_original="off"
+        ;;
+      -r*)
+        _arg_remove_original="on"
+        _next="${_key##-r}"
+        if test -n "$_next" -a "$_next" != "$_key"
+        then
+          { begins_with_short_option "$_next" && shift && set -- "-r" "-${_next}" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
+        fi
         ;;
       -h|--help)
         print_help
@@ -194,8 +209,13 @@ EOF
   avmetareadwrite --append-metadata="$plistfile" "$movfile" "$dstfile"
 
   # Remove the original file
-  echo "Cleaning up original"
-  rm -f "$filename"
+  if [ "$_arg_remove_original" = on ]
+  then
+    echo "Cleaning up original"
+    rm -f "$filename"
+  else
+    echo "Leaving original in place"
+  fi
 
   echo "Renaming final MOV"
   echo "    $basename.mov"
