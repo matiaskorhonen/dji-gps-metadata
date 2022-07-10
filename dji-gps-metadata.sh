@@ -2,7 +2,7 @@
 #
 # ARG_OPTIONAL_SINGLE([make],[m],[Device make],[DJI])
 # ARG_OPTIONAL_SINGLE([model],[d],[Device model],[Mini 2])
-# ARG_POSITIONAL_SINGLE([filename],[source video file name],[])
+# ARG_POSITIONAL_INF([filename],[source MP4 file],[1])
 # ARG_HELP([DJI GPS Metadata for Photos.app])
 # ARGBASH_GO()
 # needed because of Argbash --> m4_ignore([
@@ -30,6 +30,7 @@ begins_with_short_option()
 
 # THE DEFAULTS INITIALIZATION - POSITIONALS
 _positionals=()
+_arg_filename=('' )
 # THE DEFAULTS INITIALIZATION - OPTIONALS
 _arg_make="DJI"
 _arg_model="Mini 2"
@@ -38,8 +39,8 @@ _arg_model="Mini 2"
 print_help()
 {
   printf '%s\n' "DJI GPS Metadata for Photos.app"
-  printf 'Usage: %s [-m|--make <arg>] [-d|--model <arg>] [-h|--help] <filename>\n' "$0"
-  printf '\t%s\n' "<filename>: source video file name"
+  printf 'Usage: %s [-m|--make <arg>] [-d|--model <arg>] [-h|--help] <filename-1> [<filename-2>] ... [<filename-n>] ...\n' "$0"
+  printf '\t%s\n' "<filename>: source MP4 file"
   printf '\t%s\n' "-m, --make: Device make (default: 'DJI')"
   printf '\t%s\n' "-d, --model: Device model (default: 'Mini 2')"
   printf '\t%s\n' "-h, --help: Prints help"
@@ -97,8 +98,7 @@ parse_commandline()
 handle_passed_args_count()
 {
   local _required_args_string="'filename'"
-  test "${_positionals_count}" -ge 1 || _PRINT_HELP=yes die "FATAL ERROR: Not enough positional arguments - we require exactly 1 (namely: $_required_args_string), but got only ${_positionals_count}." 1
-  test "${_positionals_count}" -le 1 || _PRINT_HELP=yes die "FATAL ERROR: There were spurious positional arguments --- we expect exactly 1 (namely: $_required_args_string), but got ${_positionals_count} (the last one was: '${_last_positional}')." 1
+  test "${_positionals_count}" -ge 1 || _PRINT_HELP=yes die "FATAL ERROR: Not enough positional arguments - we require at least 1 (namely: $_required_args_string), but got only ${_positionals_count}." 1
 }
 
 
@@ -106,6 +106,11 @@ assign_positional_args()
 {
   local _positional_name _shift_for=$1
   _positional_names="_arg_filename "
+  _our_args=$((${#_positionals[@]} - 1))
+  for ((ii = 0; ii < _our_args; ii++))
+  do
+    _positional_names="$_positional_names _arg_filename[$((ii + 1))]"
+  done
 
   shift "$_shift_for"
   for _positional_name in ${_positional_names}
@@ -127,16 +132,19 @@ assign_positional_args 1 "${_positionals[@]}"
 
 set -e
 
-# shellcheck disable=SC2154
-filename=$_arg_filename
-make=$_arg_make
-model=$_arg_model
+for filename in "${_arg_filename[@]}"
+do
+  test -f "$filename" || die "We expected a file, got '$filename', bailing out."
+  echo "Processing $filename"
 
-# shellcheck disable=SC2016
-coordinates=$(exiftool -ignoreMinorErrors -c %+.10f -p '${gpslatitude;s/([-+])/$1.("0"x(14-length $_))/e}${gpslongitude;s/([-+])/$1.("0"x(15-length $_))/e}' -s -s -s "$filename" | tr -d '\n')
-creationDate=$(exiftool -CreateDate -d '%Y-%m-%dT%H:%M:%SZ' -s -s -s "$filename")
+  make=$_arg_make
+  model=$_arg_model
 
-string=$(cat << EOF
+  # shellcheck disable=SC2016
+  coordinates=$(exiftool -ignoreMinorErrors -c %+.10f -p '${gpslatitude;s/([-+])/$1.("0"x(14-length $_))/e}${gpslongitude;s/([-+])/$1.("0"x(15-length $_))/e}' -s -s -s "$filename" | tr -d '\n')
+  creationDate=$(exiftool -CreateDate -d '%Y-%m-%dT%H:%M:%SZ' -s -s -s "$filename")
+
+  string=$(cat << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -154,47 +162,48 @@ string=$(cat << EOF
 </dict>
 </plist>
 EOF
-)
+  )
 
-echo "Creating temp dir"
-tmpdir=$(mktemp -d -t dji-gps-metadata.XXXXXX)
+  echo "Creating temp dir"
+  tmpdir=$(mktemp -d -t dji-gps-metadata.XXXXXX)
 
-echo "Creating metadata file"
-plistfile="$tmpdir/metadata.plist"
-echo "    $plistfile"
-echo "$string" > "$plistfile"
+  echo "Creating metadata file"
+  plistfile="$tmpdir/metadata.plist"
+  echo "    $plistfile"
+  echo "$string" > "$plistfile"
 
-basename="${filename%%.*}"
-movfile="$tmpdir/$basename.mov"
-dstfile="._${basename}"
+  basename="${filename%%.*}"
+  movfile="$tmpdir/$basename.mov"
+  dstfile="._${basename}"
 
-# Convert the MP4 to a MOV
-echo "Converting MP4 to MOV"
-echo "    $movfile"
-ffmpeg -i "$filename" \
-  -ignore_unknown \
-  -acodec copy \
-  -vcodec copy \
-  -scodec mov_text \
-  -dcodec copy \
-  -movflags use_metadata_tags \
-  -f mov \
-  -y -hide_banner -loglevel error "$movfile"
+  # Convert the MP4 to a MOV
+  echo "Converting MP4 to MOV"
+  echo "    $movfile"
+  ffmpeg -i "$filename" \
+    -ignore_unknown \
+    -acodec copy \
+    -vcodec copy \
+    -scodec mov_text \
+    -dcodec copy \
+    -movflags use_metadata_tags \
+    -f mov \
+    -y -hide_banner -loglevel error "$movfile"
 
-# Append the metadata to the MOV
-echo "Appending metadata to MOV"
-avmetareadwrite --append-metadata="$plistfile" "$movfile" "$dstfile"
+  # Append the metadata to the MOV
+  echo "Appending metadata to MOV"
+  avmetareadwrite --append-metadata="$plistfile" "$movfile" "$dstfile"
 
-# Remove the original file
-echo "Cleaning up original"
-rm -f "$filename"
+  # Remove the original file
+  echo "Cleaning up original"
+  rm -f "$filename"
 
-echo "Renaming final MOV"
-echo "    $basename.mov"
-mv "$dstfile" "$basename.mov"
+  echo "Renaming final MOV"
+  echo "    $basename.mov"
+  mv "$dstfile" "$basename.mov"
 
-# Clean up the plist file
-echo "Cleaning up temp dir"
-rm -rf "$tmpdir"
+  # Clean up the plist file
+  echo "Cleaning up temp dir"
+  rm -rf "$tmpdir"
+done
 
 # ] <-- needed because of Argbash
