@@ -13,6 +13,15 @@ The GPS location is extracted from the original MP4 files using exiftool and the
 * ffmpeg (`brew install ffmpeg`)
 * avmetareadwrite (from `xcode-select --install` or from Xcode)
 
+### Development dependencies
+
+* Docker
+  * argbash
+  * shfmt
+  * shellcheck
+
+Run `./scripts/check-and-format` before committing changes.
+
 ## Usage
 
 ```

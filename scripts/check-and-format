@@ -1,0 +1,36 @@
+#!/bin/bash
+
+set -e
+
+script_file="dji-gps-metadata.sh"
+
+if [[ ! -f "$script_file" ]]; then
+  echo "dji-gps-metadata.sh not found, are you in the right directory?"
+  exit 1
+fi
+
+if [[ -f ./scripts/argbash-docker ]]; then
+  echo "Running argbash"
+  ./scripts/argbash-docker --in-place "$script_file"
+else
+  echo "Something is wrong, ./scripts/argbash-docker not found"
+  exit 2
+fi
+
+if [[ -f ./scripts/shfmt-docker ]]; then
+  echo "Running shfmt"
+  ./scripts/shfmt-docker --indent 2 --write "$script_file"
+else
+  echo "Something is wrong, ./scripts/shfmt-docker not found"
+  exit 3
+fi
+
+if [[ -f ./scripts/shellcheck-docker ]]; then
+  echo "Running shellcheck"
+  ./scripts/shellcheck-docker --color=always "$script_file"
+else
+  echo "Something is wrong, ./scripts/shellcheck-docker not found"
+  exit 4
+fi
+
+echo "Done"
