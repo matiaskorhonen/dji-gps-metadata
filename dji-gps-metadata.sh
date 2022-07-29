@@ -3,7 +3,8 @@
 # ARG_OPTIONAL_SINGLE([make],[m],[Device make],[DJI])
 # ARG_OPTIONAL_SINGLE([model],[d],[Device model],[Mini 2])
 # ARG_OPTIONAL_SINGLE([destination],[o],[Output folder (defaults to same folder as the source file)])
-# ARG_OPTIONAL_BOOLEAN([remove-original],[r],[Remove original MP4s after processing])
+# ARG_OPTIONAL_BOOLEAN([non-video],[i],[Copy or move non-video source files. Only valid when a destination is set])
+# ARG_OPTIONAL_BOOLEAN([remove-original],[r],[Remove source file after processing])
 # ARG_POSITIONAL_INF([filename],[source MP4 file],[1])
 # ARG_HELP([DJI GPS Metadata for Photos.app])
 # ARGBASH_GO()
@@ -20,7 +21,7 @@ die() {
 }
 
 begins_with_short_option() {
-  local first_option all_short_options='mdorh'
+  local first_option all_short_options='mdoirh'
   first_option="${1:0:1}"
   test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
 }
@@ -32,16 +33,18 @@ _arg_filename=('')
 _arg_make="DJI"
 _arg_model="Mini 2"
 _arg_destination=
+_arg_non_video="off"
 _arg_remove_original="off"
 
 print_help() {
   printf '%s\n' "DJI GPS Metadata for Photos.app"
-  printf 'Usage: %s [-m|--make <arg>] [-d|--model <arg>] [-o|--destination <arg>] [-r|--(no-)remove-original] [-h|--help] <filename-1> [<filename-2>] ... [<filename-n>] ...\n' "$0"
+  printf 'Usage: %s [-m|--make <arg>] [-d|--model <arg>] [-o|--destination <arg>] [-i|--(no-)non-video] [-r|--(no-)remove-original] [-h|--help] <filename-1> [<filename-2>] ... [<filename-n>] ...\n' "$0"
   printf '\t%s\n' "<filename>: source MP4 file"
   printf '\t%s\n' "-m, --make: Device make (default: 'DJI')"
   printf '\t%s\n' "-d, --model: Device model (default: 'Mini 2')"
   printf '\t%s\n' "-o, --destination: Output folder (defaults to same folder as the source file) (no default)"
-  printf '\t%s\n' "-r, --remove-original, --no-remove-original: Remove original MP4s after processing (off by default)"
+  printf '\t%s\n' "-i, --non-video, --no-non-video: Copy or move non-video source files. Only valid when a destination is set (off by default)"
+  printf '\t%s\n' "-r, --remove-original, --no-remove-original: Remove source file after processing (off by default)"
   printf '\t%s\n' "-h, --help: Prints help"
 }
 
@@ -82,6 +85,17 @@ parse_commandline() {
       ;;
     -o*)
       _arg_destination="${_key##-o}"
+      ;;
+    -i | --no-non-video | --non-video)
+      _arg_non_video="on"
+      test "${1:0:5}" = "--no-" && _arg_non_video="off"
+      ;;
+    -i*)
+      _arg_non_video="on"
+      _next="${_key##-i}"
+      if test -n "$_next" -a "$_next" != "$_key"; then
+        { begins_with_short_option "$_next" && shift && set -- "-i" "-${_next}" "$@"; } || die "The short option '$_key' can't be decomposed to ${_key:0:2} and -${_key:2}, because ${_key:0:2} doesn't accept value and '-${_key:2:1}' doesn't correspond to a short option."
+      fi
       ;;
     -r | --no-remove-original | --remove-original)
       _arg_remove_original="on"
@@ -148,7 +162,7 @@ make=$_arg_make
 model=$_arg_model
 destination=$_arg_destination
 
-if [[ ! -d "$destination" ]]; then
+if [[ -n "$destination" && ! -d "$destination" ]]; then
   echo "'$destination' is not a directory"
   exit 1
 fi
@@ -156,6 +170,25 @@ fi
 for filename in "${_arg_filename[@]}"; do
   test -f "$filename" || die "We expected a file, got '$filename', bailing out."
   echo "Processing $filename"
+
+  # shellcheck disable=SC2018,SC2019
+  lcasefilename=$(tr 'A-Z' 'a-z' <<<"$filename")
+
+  if [[ ! "$lcasefilename" == *.mp4 ]]; then
+    echo "$filename is not an MP4"
+
+    if [[ -n "$destination" && "$_arg_non_video" = on ]]; then
+      if [ "$_arg_remove_original" = on ]; then
+        echo "Moving '$filename' to '$destination'"
+        mv "$filename" "$destination/$filename"
+      else
+        echo "Copying '$filename' to '$destination'"
+        cp "$filename" "$destination/$filename"
+      fi
+    fi
+
+    continue
+  fi
 
   # shellcheck disable=SC2016
   coordinates=$(exiftool -ignoreMinorErrors -c %+.10f -p '${gpslatitude;s/([-+])/$1.("0"x(14-length $_))/e}${gpslongitude;s/([-+])/$1.("0"x(15-length $_))/e}' -s -s -s "$filename" | tr -d '\n')
