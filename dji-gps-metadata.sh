@@ -2,6 +2,7 @@
 #
 # ARG_OPTIONAL_SINGLE([make],[m],[Device make],[DJI])
 # ARG_OPTIONAL_SINGLE([model],[d],[Device model],[Mini 2])
+# ARG_OPTIONAL_SINGLE([destination],[o],[Output folder (defaults to same folder as the source file)])
 # ARG_OPTIONAL_BOOLEAN([remove-original],[r],[Remove original MP4s after processing])
 # ARG_POSITIONAL_INF([filename],[source MP4 file],[1])
 # ARG_HELP([DJI GPS Metadata for Photos.app])
@@ -19,7 +20,7 @@ die() {
 }
 
 begins_with_short_option() {
-  local first_option all_short_options='mdrh'
+  local first_option all_short_options='mdorh'
   first_option="${1:0:1}"
   test "$all_short_options" = "${all_short_options/$first_option/}" && return 1 || return 0
 }
@@ -30,14 +31,16 @@ _arg_filename=('')
 # THE DEFAULTS INITIALIZATION - OPTIONALS
 _arg_make="DJI"
 _arg_model="Mini 2"
+_arg_destination=
 _arg_remove_original="off"
 
 print_help() {
   printf '%s\n' "DJI GPS Metadata for Photos.app"
-  printf 'Usage: %s [-m|--make <arg>] [-d|--model <arg>] [-r|--(no-)remove-original] [-h|--help] <filename-1> [<filename-2>] ... [<filename-n>] ...\n' "$0"
+  printf 'Usage: %s [-m|--make <arg>] [-d|--model <arg>] [-o|--destination <arg>] [-r|--(no-)remove-original] [-h|--help] <filename-1> [<filename-2>] ... [<filename-n>] ...\n' "$0"
   printf '\t%s\n' "<filename>: source MP4 file"
   printf '\t%s\n' "-m, --make: Device make (default: 'DJI')"
   printf '\t%s\n' "-d, --model: Device model (default: 'Mini 2')"
+  printf '\t%s\n' "-o, --destination: Output folder (defaults to same folder as the source file) (no default)"
   printf '\t%s\n' "-r, --remove-original, --no-remove-original: Remove original MP4s after processing (off by default)"
   printf '\t%s\n' "-h, --help: Prints help"
 }
@@ -68,6 +71,17 @@ parse_commandline() {
       ;;
     -d*)
       _arg_model="${_key##-d}"
+      ;;
+    -o | --destination)
+      test $# -lt 2 && die "Missing value for the optional argument '$_key'." 1
+      _arg_destination="$2"
+      shift
+      ;;
+    --destination=*)
+      _arg_destination="${_key##--destination=}"
+      ;;
+    -o*)
+      _arg_destination="${_key##-o}"
       ;;
     -r | --no-remove-original | --remove-original)
       _arg_remove_original="on"
@@ -132,6 +146,12 @@ set -e
 
 make=$_arg_make
 model=$_arg_model
+destination=$_arg_destination
+
+if [[ ! -d "$destination" ]]; then
+  echo "'$destination' is not a directory"
+  exit 1
+fi
 
 for filename in "${_arg_filename[@]}"; do
   test -f "$filename" || die "We expected a file, got '$filename', bailing out."
@@ -173,6 +193,12 @@ EOF
   basename="${filename%%.*}"
   movfile="$tmpdir/$basename.mov"
   dstfile="._${basename}"
+  finalfile="$basename.mov"
+
+  if [ -n "$destination" ]; then
+    dstfile="$destination/$dstfile"
+    finalfile="$destination/$finalfile"
+  fi
 
   # Convert the MP4 to a MOV
   echo "Converting MP4 to MOV"
@@ -200,8 +226,8 @@ EOF
   fi
 
   echo "Renaming final MOV"
-  echo "    $basename.mov"
-  mv "$dstfile" "$basename.mov"
+  echo "    $finalfile"
+  mv "$dstfile" "$finalfile"
 
   # Clean up the plist file
   echo "Cleaning up temp dir"
