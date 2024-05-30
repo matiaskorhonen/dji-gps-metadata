@@ -1,5 +1,6 @@
 import Foundation
 import ArgumentParser
+import AVFoundation
 
 /*
 # ARG_OPTIONAL_SINGLE([make],[m],[Device make],[DJI])
@@ -26,7 +27,7 @@ Usage: ./dji-gps-metadata.sh [-m|--make <arg>] [-d|--model <arg>] [-o|--destinat
 
 @main
 @available(macOS 12, *)
-struct DJIMetadataFixer: ParsableCommand {
+struct DJIMetadataFixer: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "DJI GPS Metadata for Photos.app")
 
     @Option(name: [.long, .customShort("m")], help: "Device make")
@@ -47,7 +48,7 @@ struct DJIMetadataFixer: ParsableCommand {
     @Argument(help: "source MP4 file(s)", transform: URL.init(fileURLWithPath:))
     var source: [URL]
 
-    mutating func run() throws {
+    mutating func run() async throws {
         print("Running!")
 
         print("Make: \(make)")
@@ -56,17 +57,69 @@ struct DJIMetadataFixer: ParsableCommand {
         print("Non-video: \(nonVideo)")
         print("Remove original: \(removeOriginal)")
 
-        for file in source {
-            print(file)
-        }
-        // let repeatCount = count ?? 2
+        for url in source {
+            print(url)
 
-        // for i in 1...repeatCount {
-        //     if includeCounter {
-        //         print("\(i): \(phrase)")
-        //     } else {
-        //         print(phrase)
-        //     }
-        // }
+            let asset = AVAsset(url: url)
+            let metadataFormats = try await asset.load(.availableMetadataFormats)
+
+            for format in metadataFormats {
+                let metadata = try await asset.loadMetadata(for: format)
+
+                print("The available metadata format is \(format)")
+
+                // With preamble:
+                // [MOV-Movie-UserData] GPS Coordinates → uiso/©xyz
+                // [MOV-Movie-UserData] Speed X → uiso/©xsp
+                // [MOV-Movie-UserData] Speed Y → uiso/©ysp
+                // [MOV-Movie-UserData] Speed Z → uiso/©zsp
+                // [MOV-Movie-UserData] Pitch → uiso/©fpt
+                // [MOV-Movie-UserData] Yaw → uiso/©fyw
+                // [MOV-Movie-UserData] Roll → uiso/©frl
+                // [MOV-Movie-UserData] Camera Pitch → uiso/©gpt
+                // [MOV-Movie-UserData] Camera Yaw → uiso/©gyw
+                // [MOV-Movie-UserData] Camera Roll → uiso/©grl
+
+                // Without preamble:
+                // [MOV-Movie-UserData] Model
+                // [MOV-Movie-UserData] Serial number
+
+                // Unknown:
+                // [MOV-Movie-MovieHeader] Create Date
+                // [MOV-Movie-MovieHeader] Modify Date
+                // [MOV-Movie-UserData-Meta-ItemList] Comment
+
+                for item in metadata {
+                    if let data = item.dataValue, let identifier = item.identifier?.rawValue.replacingOccurrences(of: "%A9", with: "©") {
+
+
+                        let type = Int(data[0])
+                        let size = Int(data[1])
+
+                        guard size > 1 else {
+                            print("🚫 \(identifier) → No data")
+                            continue
+                        }
+
+                        if type == 0 {
+                            let start = 4 // Skip the first four bytes
+                            let end = 4 + size
+
+                            var subdata = data[start..<end]
+                            let nullEnd = subdata.firstIndex(where: { $0 == 0 }) ?? subdata.endIndex
+                            subdata = subdata[start..<nullEnd] // Remove the null bytes
+
+                            let hex = subdata.reduce("") {$0 + String(format: "%02x ", $1)}
+                            let string = String(data: subdata, encoding: .ascii)
+
+                            print("✅ \(identifier) → \(string ?? "—") \(size)|\(subdata.count) bytes [\(hex)]")
+                        } else {
+                            let hex = data.reduce("") {$0 + String(format: "%02x ", $1)}
+                            print("😢 \(identifier) → Data: \(String(data: data, encoding: .ascii) ?? "—") [\(hex)]")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
