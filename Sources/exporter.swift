@@ -34,6 +34,14 @@ public class Exporter {
 
     // Config
     writer.shouldOptimizeForNetworkUse = true
+    let item = AVMutableMetadataItem()
+    item.identifier = AVMetadataIdentifier.quickTimeMetadataLocationISO6709
+    item.value = "+60.1797+24.9968" as NSString  // TODO: actually get the location
+    item.dataType = kCMMetadataBaseDataType_UTF8 as String
+
+    writer.metadata = [
+      item
+    ]
 
     self.writer = writer
     self.reader = reader
