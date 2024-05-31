@@ -4,15 +4,9 @@ import Photos
 
 public class Exporter {
   var writer: AVAssetWriter!
-  var videoInput: AVAssetWriterInput?
-  var audioInput: AVAssetWriterInput?
-
   var reader: AVAssetReader!
-  var videoOutput: AVAssetReaderTrackOutput?
-  var audioOutput: AVAssetReaderTrackOutput?
 
-  var audioCompleted: Bool = false
-  var videoCompleted: Bool = false
+  var inputOutputs: [(input: AVAssetWriterInput, output: AVAssetReaderOutput, completed: Bool)] = []
 
   let requestQueue = DispatchQueue(
     label: "DJIMetadataFixer.Exporter.RequestQueue", qos: .background)
@@ -59,38 +53,27 @@ public class Exporter {
     }
     writer.startSession(atSourceTime: CMTime.zero)
 
-    // Video
-    if let videoOutput = videoOutput,
-      let videoInput = videoInput
-    {
-      print("Writer : \(writer.status) \(String(describing: writer.error))")
-      print("Reader : \(reader.status) \(String(describing: reader.error))")
+    for (index, element) in inputOutputs.enumerated() {
+      let input = element.input
+      let output = element.output
 
-      videoInput.requestMediaDataWhenReady(on: requestQueue) {
-        if !self.stream(from: videoOutput, to: videoInput) {
+      input.requestMediaDataWhenReady(on: requestQueue) {
+        if !self.stream(from: output, to: input) {
           self.finishQueue.async {
-            self.videoCompleted = true
-            if self.audioCompleted {
+            self.inputOutputs.replaceSubrange(
+              index...index, with: [(input: input, output: output, completed: true)])
+
+            if self.completedAllStreams() {
               self.finish(outputURL: outputURL, completion: completion)
             }
           }
         }
       }
     }
+  }
 
-    // Audio
-    if let audioOutput = audioOutput, let audioInput = audioInput {
-      audioInput.requestMediaDataWhenReady(on: requestQueue) {
-        if !self.stream(from: audioOutput, to: audioInput) {
-          self.finishQueue.async {
-            self.audioCompleted = true
-            if self.videoCompleted {
-              self.finish(outputURL: outputURL, completion: completion)
-            }
-          }
-        }
-      }
-    }
+  fileprivate func completedAllStreams() -> Bool {
+    return inputOutputs.allSatisfy { $0.completed }
   }
 
   func asyncExport(
@@ -133,74 +116,51 @@ public class Exporter {
     }
   }
 
-  // MARK: - Helper
+  // MARK: - Helpers
 
   fileprivate func wire(_ avAsset: AVAsset) {
-    wireVideo(avAsset)
-    wireAudio(avAsset)
-  }
+    let types = [
+      AVMediaType.video, AVMediaType.audio, AVMediaType.metadata, AVMediaType.subtitle,
+      AVMediaType.text, AVMediaType.timecode, AVMediaType.closedCaption, AVMediaType.depthData,
+      AVMediaType.haptic, AVMediaType.muxed,
+    ]
 
-  fileprivate func wireVideo(_ avAsset: AVAsset) {
-    let videoTracks = avAsset.tracks(withMediaType: AVMediaType.video)
-
-    if let videoTrack = videoTracks.first {
-      // Output
-      let trackOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
-
-      if reader.canAdd(trackOutput) {
-        print("Adding track output")
-        reader.add(trackOutput)
+    for type in types {
+      let tracks: [AVAssetTrack] = avAsset.tracks(withMediaType: type)
+      if tracks.isEmpty {
+        print("No tracks found for type: \(type)")
       } else {
-        print("Can't add track output")
+        print("\(tracks.count) track(s) found for type: \(type)")
+
+        for track in tracks {
+          wireTrack(track)
+        }
       }
-
-      let descriptions = videoTrack.formatDescriptions as! [CMFormatDescription]
-
-      // Input
-      let videoInput = AVAssetWriterInput(
-        mediaType: videoTrack.mediaType,
-        outputSettings: nil,
-        sourceFormatHint: descriptions.first!)
-      if writer.canAdd(videoInput) {
-        print("Adding video input")
-        writer.add(videoInput)
-      }
-
-      self.videoInput = videoInput
-      self.videoOutput = trackOutput
-    } else {
-      print("No video tracks found.")
     }
   }
 
-  fileprivate func wireAudio(_ avAsset: AVAsset) {
-    let audioTracks = avAsset.tracks(withMediaType: AVMediaType.audio)
-    if let audioTrack = audioTracks.first {
-      // Output
-      let trackOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: nil)
-      if reader.canAdd(trackOutput) {
-        print("Adding audio track output")
-        reader.add(trackOutput)
-      }
+  fileprivate func wireTrack(_ avTrack: AVAssetTrack) {
+    let trackOutput = AVAssetReaderTrackOutput(track: avTrack, outputSettings: nil)
+    let descriptions = avTrack.formatDescriptions as! [CMFormatDescription]
 
-      let descriptions = audioTrack.formatDescriptions as! [CMFormatDescription]
-
-      // Input
-      let audioInput = AVAssetWriterInput(
-        mediaType: trackOutput.mediaType,
-        outputSettings: nil,
-        sourceFormatHint: descriptions.first!)
-
-      if writer.canAdd(audioInput) {
-        writer.add(audioInput)
-      }
-
-      self.audioOutput = trackOutput
-      self.audioInput = audioInput
+    if reader.canAdd(trackOutput) {
+      print("✅ Adding track output for \(avTrack.mediaType)")
+      reader.add(trackOutput)
     } else {
-      print("No audio tracks found.")
-      self.audioCompleted = true
+      print("❌ Can't add track output for \(avTrack.mediaType)")
     }
+
+    let trackInput = AVAssetWriterInput(
+      mediaType: avTrack.mediaType,
+      outputSettings: nil,
+      sourceFormatHint: descriptions.first!)
+
+    if writer.canAdd(trackInput) {
+      print("Adding track input for \(avTrack.mediaType)")
+      writer.add(trackInput)
+    }
+
+    inputOutputs.append((input: trackInput, output: trackOutput, completed: false))
   }
 
   fileprivate func stream(from output: AVAssetReaderOutput, to input: AVAssetWriterInput) -> Bool {
