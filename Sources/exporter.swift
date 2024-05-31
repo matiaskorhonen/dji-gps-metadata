@@ -24,12 +24,7 @@ public class Exporter {
   public init() {
   }
 
-  // MARK: - Edit
-
-  // public func edit(video: Video, completion: @escaping (_ video: Video?, _ tempPath: URL?) -> Void)
-  // {
-  //   process(video: video, completion: completion)
-  // }
+  // MARK: - Export
 
   public func export(
     avAsset: AVAsset, toFileType outputFileType: AVFileType = .mp4, atURL outputURL: URL,
@@ -65,7 +60,7 @@ public class Exporter {
     writer.startSession(atSourceTime: CMTime.zero)
 
     // Video
-    if let videoOutput: AVAssetReaderVideoCompositionOutput = videoOutput,
+    if let videoOutput = videoOutput,
       let videoInput = videoInput
     {
       print("Writer : \(writer.status) \(String(describing: writer.error))")
@@ -101,7 +96,10 @@ public class Exporter {
   // MARK: - Finish
 
   fileprivate func finish(outputURL: URL, completion: @escaping (URL?) -> Void) {
+    print("Finishing...")
+
     if reader.status == .failed {
+      print("Reader status: failed")
       writer.cancelWriting()
     }
 
@@ -134,8 +132,8 @@ public class Exporter {
 
   fileprivate func wireVideo(_ avAsset: AVAsset) {
     let compression: [String: Any] = [
-      AVVideoAverageBitRateKey: NSNumber(value: 6_000_000),
-      AVVideoProfileLevelKey: AVVideoProfileLevelH264High40,
+      // AVVideoAverageBitRateKey: NSNumber(value: 120_000_000),
+      AVVideoProfileLevelKey: AVVideoProfileLevelH264High40
     ]
 
     let settings: [String: Any] = [
@@ -146,25 +144,32 @@ public class Exporter {
     ]
 
     let videoTracks = avAsset.tracks(withMediaType: AVMediaType.video)
+
     if !videoTracks.isEmpty {
       // Output
       let videoOutput = AVAssetReaderVideoCompositionOutput(
-        videoTracks: videoTracks, videoSettings: settings)
+        videoTracks: videoTracks, videoSettings: nil)
       videoOutput.videoComposition = AVVideoComposition(propertiesOf: avAsset)
       if reader.canAdd(videoOutput) {
         reader.add(videoOutput)
       }
 
+      let descriptions = videoTracks.first!.formatDescriptions as! [CMFormatDescription]
+      print("\(descriptions)")
+
       // Input
       let videoInput = AVAssetWriterInput(
         mediaType: AVMediaType.video,
-        outputSettings: settings)
+        outputSettings: settings,
+        sourceFormatHint: descriptions.first!)
       if writer.canAdd(videoInput) {
         writer.add(videoInput)
       }
 
       self.videoInput = videoInput
       self.videoOutput = videoOutput
+    } else {
+      print("No video tracks found.")
     }
   }
 
@@ -188,6 +193,9 @@ public class Exporter {
 
       self.audioOutput = audioOutput
       self.audioInput = audioInput
+    } else {
+      print("No audio tracks found.")
+      self.audioCompleted = true
     }
   }
 

@@ -131,18 +131,29 @@ struct DJIMetadataFixer: AsyncParsableCommand {
 
       print("OUTPUT: \(outputURL)")
 
-      // let exporter = Exporter()
-      // exporter.export(
-      //   avAsset: asset,
-      //   toFileType: .mp4,
-      //   atURL: outputURL,
-      //   completion: { url in print("Exported to \(url?.absoluteString ?? "nil")") })
+      let exporter = Exporter()
+      var completed = false
+      exporter.export(
+        avAsset: asset,
+        toFileType: .mp4,
+        atURL: outputURL,
+        completion: { url in
+          print("Exported to \(url?.absoluteString ?? "nil")")
+          completed = true
+        })
 
-      await export(
-        video: asset,
-        withPreset: AVAssetExportPresetHighestQuality,
-        toFileType: .mov,
-        atURL: outputURL)
+      while !completed {
+        print(".")
+        try await Task.sleep(nanoseconds: 1 * 1_000_000_000)
+      }
+
+      // await export(
+      //   video: asset,
+      //   withPreset: AVAssetExportPresetHighestQuality,
+      //   toFileType: .mov,
+      //   atURL: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+      //     .appendingPathComponent("export-output")
+      //     .appendingPathExtension("mp4"))
     }
   }
 }
