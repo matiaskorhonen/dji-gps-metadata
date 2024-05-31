@@ -62,7 +62,9 @@ fastlane/screenshots/**/*.png
 fastlane/test_output
 
 # Ignore video and image files
+*.mp3
 *.mp4
+*.mp4.*
 *.mov
 *.bak
 *.jpg
