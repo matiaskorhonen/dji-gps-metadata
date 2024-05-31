@@ -12,8 +12,15 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - uses: swift-actions/setup-swift@v2.0.0
+    - id: setup-swift
+      uses: swift-actions/setup-swift@v2.0.0
     - uses: actions/checkout@v4
+    - uses: actions/cache@v3
+      with:
+        path: .build
+        key: ${{ runner.os }}-${{ steps.setup-swift.version }}-spm-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ steps.setup-swift.version }}-
     - name: Build
       run: swift build
     - name: Run tests
