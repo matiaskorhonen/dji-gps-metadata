@@ -8,7 +8,7 @@ public class Exporter {
   var audioInput: AVAssetWriterInput?
 
   var reader: AVAssetReader!
-  var videoOutput: AVAssetReaderVideoCompositionOutput?
+  var videoOutput: AVAssetReaderTrackOutput?
   var audioOutput: AVAssetReaderAudioMixOutput?
 
   var audioCompleted: Bool = false
@@ -131,43 +131,34 @@ public class Exporter {
   }
 
   fileprivate func wireVideo(_ avAsset: AVAsset) {
-    let compression: [String: Any] = [
-      // AVVideoAverageBitRateKey: NSNumber(value: 120_000_000),
-      AVVideoProfileLevelKey: AVVideoProfileLevelH264High40
-    ]
-
-    let settings: [String: Any] = [
-      AVVideoCodecKey: AVVideoCodecType.h264 as AnyObject,
-      AVVideoWidthKey: NSNumber(value: 1920 as Int),
-      AVVideoHeightKey: NSNumber(value: 1080 as Int),
-      AVVideoCompressionPropertiesKey: compression as AnyObject,
-    ]
-
     let videoTracks = avAsset.tracks(withMediaType: AVMediaType.video)
 
-    if !videoTracks.isEmpty {
+    if let videoTrack = videoTracks.first {
       // Output
-      let videoOutput = AVAssetReaderVideoCompositionOutput(
-        videoTracks: videoTracks, videoSettings: nil)
-      videoOutput.videoComposition = AVVideoComposition(propertiesOf: avAsset)
-      if reader.canAdd(videoOutput) {
-        reader.add(videoOutput)
+      let trackOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: nil)
+
+      if reader.canAdd(trackOutput) {
+        print("Adding track output")
+        reader.add(trackOutput)
+      } else {
+        print("Can't add track output")
       }
 
-      let descriptions = videoTracks.first!.formatDescriptions as! [CMFormatDescription]
+      let descriptions = videoTrack.formatDescriptions as! [CMFormatDescription]
       print("\(descriptions)")
 
       // Input
       let videoInput = AVAssetWriterInput(
         mediaType: AVMediaType.video,
-        outputSettings: settings,
+        outputSettings: nil,
         sourceFormatHint: descriptions.first!)
       if writer.canAdd(videoInput) {
+        print("Adding video input")
         writer.add(videoInput)
       }
 
       self.videoInput = videoInput
-      self.videoOutput = videoOutput
+      self.videoOutput = trackOutput
     } else {
       print("No video tracks found.")
     }
