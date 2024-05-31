@@ -124,6 +124,59 @@ struct DJIMetadataFixer: AsyncParsableCommand {
           }
         }
       }
+
+      let outputURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        .appendingPathComponent("swift-output")
+        .appendingPathExtension("mp4")
+
+      print("OUTPUT: \(outputURL)")
+
+      // let exporter = Exporter()
+      // exporter.export(
+      //   avAsset: asset,
+      //   toFileType: .mp4,
+      //   atURL: outputURL,
+      //   completion: { url in print("Exported to \(url?.absoluteString ?? "nil")") })
+
+      await export(
+        video: asset,
+        withPreset: AVAssetExportPresetHighestQuality,
+        toFileType: .mov,
+        atURL: outputURL)
     }
   }
+}
+
+func export(
+  video: AVAsset,
+  withPreset preset: String = AVAssetExportPresetHighestQuality,
+  toFileType outputFileType: AVFileType = .mov,
+  atURL outputURL: URL
+) async {
+
+  // Check the compatibility of the preset to export the video to the output file type.
+  guard
+    await AVAssetExportSession.compatibility(
+      ofExportPreset: preset,
+      with: video,
+      outputFileType: outputFileType)
+  else {
+    print("The preset can't export the video to the output file type.")
+    return
+  }
+
+  // Create and configure the export session.
+  guard
+    let exportSession = AVAssetExportSession(
+      asset: video,
+      presetName: preset)
+  else {
+    print("Failed to create export session.")
+    return
+  }
+  exportSession.outputFileType = outputFileType
+  exportSession.outputURL = outputURL
+
+  // Convert the video to the output file type and export it to the output URL.
+  await exportSession.export()
 }
