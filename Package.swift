@@ -8,8 +8,10 @@ let package = Package(
   platforms: [
     .macOS(.v12)
   ],
+  products: [],
   dependencies: [
-    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.4.0")
+    .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.4.0"),
+    .package(url: "https://github.com/apple/swift-testing.git", branch: "main"),
   ],
   targets: [
     // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -19,6 +21,13 @@ let package = Package(
       dependencies: [
         .product(name: "ArgumentParser", package: "swift-argument-parser")
       ],
-      path: "Sources")
+      path: "Sources"
+    ),
+    .testTarget(
+      name: "DJIMetadataFixerTests",
+      dependencies: [
+        "DJIMetadataFixer",
+        .product(name: "Testing", package: "swift-testing"),
+      ]),
   ]
 )
