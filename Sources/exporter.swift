@@ -93,6 +93,16 @@ public class Exporter {
     }
   }
 
+  func asyncExport(
+    avAsset: AVAsset, toFileType outputFileType: AVFileType = .mp4, atURL outputURL: URL
+  ) async -> URL? {
+    return await withCheckedContinuation { continuation in
+      export(avAsset: avAsset, toFileType: outputFileType, atURL: outputURL) { url in
+        continuation.resume(returning: url)
+      }
+    }
+  }
+
   // MARK: - Finish
 
   fileprivate func finish(outputURL: URL, completion: @escaping (URL?) -> Void) {

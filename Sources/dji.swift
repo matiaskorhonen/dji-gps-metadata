@@ -26,7 +26,6 @@ Usage: ./dji-gps-metadata.sh [-m|--make <arg>] [-d|--model <arg>] [-o|--destinat
 */
 
 @main
-@available(macOS 12, *)
 struct DJIMetadataFixer: AsyncParsableCommand {
   static let configuration = CommandConfiguration(abstract: "DJI GPS Metadata for Photos.app")
 
@@ -132,20 +131,13 @@ struct DJIMetadataFixer: AsyncParsableCommand {
       print("OUTPUT: \(outputURL)")
 
       let exporter = Exporter()
-      var completed = false
-      exporter.export(
+
+      let url = await exporter.asyncExport(
         avAsset: asset,
         toFileType: .mp4,
-        atURL: outputURL,
-        completion: { url in
-          print("Exported to \(url?.absoluteString ?? "nil")")
-          completed = true
-        })
+        atURL: outputURL)
 
-      while !completed {
-        print(".")
-        try await Task.sleep(nanoseconds: 1 * 1_000_000_000)
-      }
+      print("Done! \(url?.absoluteString ?? "—")")
 
       // await export(
       //   video: asset,
