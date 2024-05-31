@@ -9,7 +9,7 @@ public class Exporter {
 
   var reader: AVAssetReader!
   var videoOutput: AVAssetReaderTrackOutput?
-  var audioOutput: AVAssetReaderAudioMixOutput?
+  var audioOutput: AVAssetReaderTrackOutput?
 
   var audioCompleted: Bool = false
   var videoCompleted: Bool = false
@@ -145,11 +145,10 @@ public class Exporter {
       }
 
       let descriptions = videoTrack.formatDescriptions as! [CMFormatDescription]
-      print("\(descriptions)")
 
       // Input
       let videoInput = AVAssetWriterInput(
-        mediaType: AVMediaType.video,
+        mediaType: videoTrack.mediaType,
         outputSettings: nil,
         sourceFormatHint: descriptions.first!)
       if writer.canAdd(videoInput) {
@@ -166,23 +165,27 @@ public class Exporter {
 
   fileprivate func wireAudio(_ avAsset: AVAsset) {
     let audioTracks = avAsset.tracks(withMediaType: AVMediaType.audio)
-    if !audioTracks.isEmpty {
+    if let audioTrack = audioTracks.first {
       // Output
-      let audioOutput = AVAssetReaderAudioMixOutput(audioTracks: audioTracks, audioSettings: nil)
-      audioOutput.alwaysCopiesSampleData = true
-      if reader.canAdd(audioOutput) {
-        reader.add(audioOutput)
+      let trackOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: nil)
+      if reader.canAdd(trackOutput) {
+        print("Adding audio track output")
+        reader.add(trackOutput)
       }
+
+      let descriptions = audioTrack.formatDescriptions as! [CMFormatDescription]
 
       // Input
       let audioInput = AVAssetWriterInput(
-        mediaType: AVMediaType.audio,
-        outputSettings: nil)
+        mediaType: trackOutput.mediaType,
+        outputSettings: nil,
+        sourceFormatHint: descriptions.first!)
+
       if writer.canAdd(audioInput) {
         writer.add(audioInput)
       }
 
-      self.audioOutput = audioOutput
+      self.audioOutput = trackOutput
       self.audioInput = audioInput
     } else {
       print("No audio tracks found.")
