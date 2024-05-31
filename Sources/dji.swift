@@ -126,7 +126,7 @@ struct DJIMetadataFixer: AsyncParsableCommand {
       }
 
       let outputURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        .appendingPathComponent("swift-output")
+        .appendingPathComponent("output-\(Int(Date().timeIntervalSince1970))")
         .appendingPathExtension("mp4")
 
       print("OUTPUT: \(outputURL)")
