@@ -21,58 +21,57 @@ public class Exporter {
   // MARK: - Export
 
   public func export(
-    avAsset: AVAsset, toFileType outputFileType: AVFileType = .mp4, atURL outputURL: URL,
-    completion: @escaping (URL?) -> Void
-  ) {
+    avAsset: AVAsset,
+    metadata: [AVMetadataItem],
+    toFileType outputFileType: AVFileType = .mp4,
+    atURL outputURL: URL
+  ) async -> URL? {
     guard
       let writer = try? AVAssetWriter(outputURL: outputURL as URL, fileType: outputFileType),
       let reader = try? AVAssetReader(asset: avAsset)
     else {
-      completion(nil)
-      return
+      return nil
     }
 
     // Config
     writer.shouldOptimizeForNetworkUse = true
-    let item = AVMutableMetadataItem()
-    item.identifier = AVMetadataIdentifier.quickTimeMetadataLocationISO6709
-    item.value = "+60.1797+24.9968" as NSString  // TODO: actually get the location
-    item.dataType = kCMMetadataBaseDataType_UTF8 as String
 
-    writer.metadata = [
-      item
-    ]
+    writer.metadata = metadata
 
     self.writer = writer
     self.reader = reader
 
-    wire(avAsset)
+    await wire(avAsset)
 
     // Start
     guard writer.startWriting() else {
       print("Writer failed to start writing.")
-      completion(nil)
-      return
+      return nil
     }
     guard reader.startReading() else {
       print("Reader failed to start reading.")
-      completion(nil)
-      return
+      return nil
     }
     writer.startSession(atSourceTime: CMTime.zero)
 
-    for (index, element) in inputOutputs.enumerated() {
-      let input = element.input
-      let output = element.output
+    return await withCheckedContinuation { continuation in
+      for (index, element) in inputOutputs.enumerated() {
+        let input = element.input
+        let output = element.output
 
-      input.requestMediaDataWhenReady(on: requestQueue) {
-        if !self.stream(from: output, to: input) {
-          self.finishQueue.async {
-            self.inputOutputs.replaceSubrange(
-              index...index, with: [(input: input, output: output, completed: true)])
+        input.requestMediaDataWhenReady(on: requestQueue) {
+          if !self.stream(from: output, to: input) {
+            self.finishQueue.async {
+              self.inputOutputs.replaceSubrange(
+                index...index, with: [(input: input, output: output, completed: true)])
 
-            if self.completedAllStreams() {
-              self.finish(outputURL: outputURL, completion: completion)
+              if self.completedAllStreams() {
+                self.finish(
+                  outputURL: outputURL,
+                  completion: { url in
+                    continuation.resume(returning: url)
+                  })
+              }
             }
           }
         }
@@ -82,16 +81,6 @@ public class Exporter {
 
   fileprivate func completedAllStreams() -> Bool {
     return inputOutputs.allSatisfy { $0.completed }
-  }
-
-  func asyncExport(
-    avAsset: AVAsset, toFileType outputFileType: AVFileType = .mp4, atURL outputURL: URL
-  ) async -> URL? {
-    return await withCheckedContinuation { continuation in
-      export(avAsset: avAsset, toFileType: outputFileType, atURL: outputURL) { url in
-        continuation.resume(returning: url)
-      }
-    }
   }
 
   // MARK: - Finish
@@ -124,9 +113,9 @@ public class Exporter {
     }
   }
 
-  // MARK: - Helpers
+  // MARK: - Wire inputs and outputs
 
-  fileprivate func wire(_ avAsset: AVAsset) {
+  fileprivate func wire(_ avAsset: AVAsset) async {
     let types = [
       AVMediaType.video, AVMediaType.audio, AVMediaType.metadata, AVMediaType.subtitle,
       AVMediaType.text, AVMediaType.timecode, AVMediaType.closedCaption, AVMediaType.depthData,
@@ -170,6 +159,8 @@ public class Exporter {
 
     inputOutputs.append((input: trackInput, output: trackOutput, completed: false))
   }
+
+  // MARK: - Stream from output to input
 
   fileprivate func stream(from output: AVAssetReaderOutput, to input: AVAssetWriterInput) -> Bool {
     while input.isReadyForMoreMediaData {
