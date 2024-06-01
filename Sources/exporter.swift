@@ -45,11 +45,11 @@ public class Exporter {
 
     // Start
     guard writer.startWriting() else {
-      print("Writer failed to start writing.")
+      // TODO: Raise an error
       return nil
     }
     guard reader.startReading() else {
-      print("Reader failed to start reading.")
+      // TODO: Raise an error
       return nil
     }
     writer.startSession(atSourceTime: CMTime.zero)
@@ -86,10 +86,8 @@ public class Exporter {
   // MARK: - Finish
 
   fileprivate func finish(outputURL: URL, completion: @escaping (URL?) -> Void) {
-    print("Finishing...")
-
     if reader.status == .failed {
-      print("Reader status: failed")
+      // TODO: Raise an error
       writer.cancelWriting()
     }
 
@@ -122,12 +120,14 @@ public class Exporter {
       AVMediaType.haptic, AVMediaType.muxed,
     ]
 
+    // TODO: Raise an error if there are no video tracks
+
     for type in types {
       let tracks: [AVAssetTrack] = avAsset.tracks(withMediaType: type)
       if tracks.isEmpty {
-        print("No tracks found for type: \(type)")
+        // print("No tracks found for type: \(type)")
       } else {
-        print("\(tracks.count) track(s) found for type: \(type)")
+        // print("\(tracks.count) track(s) found for type: \(type)")
 
         for track in tracks {
           wireTrack(track)
@@ -141,10 +141,11 @@ public class Exporter {
     let descriptions = avTrack.formatDescriptions as! [CMFormatDescription]
 
     if reader.canAdd(trackOutput) {
-      print("✅ Adding track output for \(avTrack.mediaType)")
+      // print("✅ Adding track output for \(avTrack.mediaType)")
       reader.add(trackOutput)
     } else {
-      print("❌ Can't add track output for \(avTrack.mediaType)")
+      // TODO: Raise an error
+      // print("❌ Can't add track output for \(avTrack.mediaType)")
     }
 
     let trackInput = AVAssetWriterInput(
@@ -153,7 +154,7 @@ public class Exporter {
       sourceFormatHint: descriptions.first!)
 
     if writer.canAdd(trackInput) {
-      print("Adding track input for \(avTrack.mediaType)")
+      // print("Adding track input for \(avTrack.mediaType)")
       writer.add(trackInput)
     }
 

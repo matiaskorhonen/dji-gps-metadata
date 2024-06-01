@@ -35,7 +35,7 @@ struct MetadataTemplate {
   }
 }
 
-struct Extractor {
+public struct Extractor {
   // ExifTool output and the corresponding uiso identifiers:
   //
   // With preamble:
@@ -100,14 +100,14 @@ struct Extractor {
     // uiso/©mdl → Model number
   ]
 
-  static func extractMetadata(from asset: AVAsset) async throws -> [String: String] {
+  public static func extractMetadata(from asset: AVAsset) async throws -> [String: String] {
     var parsedMetadata: [String: String] = [:]
     let metadataFormats = try await asset.load(.availableMetadataFormats)
 
     for format in metadataFormats {
       let metadata = try await asset.loadMetadata(for: format)
 
-      print("The available metadata format is \(format)")
+      // print("The available metadata format is \(format)")
 
       for item in metadata {
         if let data = item.dataValue,
@@ -118,7 +118,7 @@ struct Extractor {
           let size = Int(data[1])
 
           guard size > 1 else {
-            print("🚫 \(identifier) → No data")
+            // print("🚫 \(identifier) → No data")
             continue
           }
 
@@ -130,17 +130,20 @@ struct Extractor {
             let nullEnd = subdata.firstIndex(where: { $0 == 0 }) ?? subdata.endIndex
             subdata = subdata[start..<nullEnd]  // Remove the null bytes
 
-            let hex = subdata.reduce("") { $0 + String(format: "%02x ", $1) }
-              .trimmingCharacters(in: .whitespacesAndNewlines)
-            let string = String(data: subdata, encoding: .ascii)
+            // let hex = subdata.reduce("") { $0 + String(format: "%02x ", $1) }
+            //   .trimmingCharacters(in: .whitespacesAndNewlines)
+            let string = String(data: subdata, encoding: .utf8)
 
             parsedMetadata[identifier] = string
 
-            print("✅ \(identifier) → \(string ?? "—") \(size)|\(subdata.count) bytes [\(hex)]")
+            // print("✅ \(identifier) → \(string ?? "—") \(size)|\(subdata.count) bytes [\(hex)]")
           } else {
-            let hex = data.reduce("") { $0 + String(format: "%02x ", $1) }
-            print(
-              "😢 \(identifier) → Data: \(String(data: data, encoding: .ascii) ?? "—") [\(hex)]")
+            let start = 0
+            let end = data.firstIndex(where: { $0 == 0 }) ?? data.endIndex
+            let subdata = data[start..<end]  // Read until the first null or the end
+            let string = String(data: subdata, encoding: .utf8)
+
+            parsedMetadata[identifier] = string
           }
         }
       }
@@ -149,7 +152,7 @@ struct Extractor {
     return parsedMetadata
   }
 
-  static func extractItems(from asset: AVAsset) async throws -> [AVMetadataItem] {
+  public static func extractItems(from asset: AVAsset) async throws -> [AVMetadataItem] {
     let metadata = try await self.extractMetadata(from: asset)
 
     let items: [AVMetadataItem] = metadata.compactMap { (key: String, value: String) in

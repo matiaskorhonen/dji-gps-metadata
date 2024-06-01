@@ -50,17 +50,12 @@ struct DJIMetadataFixer: AsyncParsableCommand {
   var source: [URL]
 
   mutating func run() async throws {
-    print("Running!")
-
-    print("Make: \(make)")
     print("Model: \(model)")
     print("Destination: \(destination ?? "nil")")
     print("Non-video: \(nonVideo)")
     print("Remove original: \(removeOriginal)")
 
     for url in source {
-      print(url)
-
       let asset = AVAsset(url: url)
 
       let metadata = try await Extractor.extractItems(from: asset)
@@ -68,8 +63,6 @@ struct DJIMetadataFixer: AsyncParsableCommand {
       let outputURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         .appendingPathComponent("output-\(Int(Date().timeIntervalSince1970))")
         .appendingPathExtension("mp4")
-
-      print("OUTPUT: \(outputURL)")
 
       let exporter = Exporter()
 
