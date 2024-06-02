@@ -25,6 +25,9 @@ struct DJIMetadataFixer: AsyncParsableCommand {
     })
   var destination: URL? = nil
 
+  @Flag(name: [.long, .customShort("f")], help: "Overwrite existing files without prompting")
+  var force = false
+
   @Argument(help: "source MP4 file(s)", transform: URL.init(fileURLWithPath:))
   var source: [URL]
 
@@ -81,8 +84,8 @@ struct DJIMetadataFixer: AsyncParsableCommand {
       let outputURL = URL(fileURLWithPath: outputDirectoryPath)
         .appendingPathComponent(filename)
 
-      var overwrite = false
-      if FileManager.default.fileExists(atPath: outputURL.path) {
+      var overwrite = force
+      if !overwrite && FileManager.default.fileExists(atPath: outputURL.path) {
         overwrite = prompt("\(outputURL.path) exists. Overwrite?")
 
         if !overwrite {
@@ -109,19 +112,20 @@ struct DJIMetadataFixer: AsyncParsableCommand {
 
       if exportURL == nil {
         print("Failed to export \(url.path)")
-        continue
-      }
-
-      if overwrite {
-        // Replace the existing item if it exists
-        try FileManager.default.replaceItem(
-          at: outputURL, withItemAt: exportURL!, backupItemName: "\(filename).bak",
-          options: .usingNewMetadataOnly,
-          resultingItemURL: nil)
       } else {
-        // Safely move the item to the output directory, throws an error if the
-        // item already exists
-        try FileManager.default.moveItem(at: exportURL!, to: outputURL)
+        if overwrite {
+          // Replace the existing item if it exists
+          try FileManager.default.replaceItem(
+            at: outputURL, withItemAt: exportURL!, backupItemName: "\(filename).bak",
+            options: .usingNewMetadataOnly,
+            resultingItemURL: nil)
+        } else {
+          // Safely move the item to the output directory, throws an error if the
+          // item already exists
+          try FileManager.default.moveItem(at: exportURL!, to: outputURL)
+        }
+
+        print("Exported \(url.lastPathComponent) to \(outputURL.path)")
       }
     }
   }
