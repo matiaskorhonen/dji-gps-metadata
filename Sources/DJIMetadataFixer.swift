@@ -35,8 +35,12 @@ struct DJIMetadataFixer: AsyncParsableCommand {
   @Option(name: [.long, .customShort("d")], help: "Device model")
   var model: String = "Mini 2"
 
-  @Option(name: [.long, .customShort("o")], help: "Output folder")
-  var destination: String? = nil
+  @Option(
+    name: [.long, .customShort("o")], help: "Output folder",
+    transform: { value in
+      URL(fileURLWithPath: value)
+    })
+  var destination: URL? = nil
 
   @Flag(
     name: [.long, .customShort("i")],
@@ -50,17 +54,21 @@ struct DJIMetadataFixer: AsyncParsableCommand {
   var source: [URL]
 
   mutating func run() async throws {
-    print("Model: \(model)")
-    print("Destination: \(destination ?? "nil")")
-    print("Non-video: \(nonVideo)")
-    print("Remove original: \(removeOriginal)")
+    let outputDirectoryPath = destination?.path ?? FileManager.default.currentDirectoryPath
+
+    var isDirectory = ObjCBool(true)
+    FileManager.default.fileExists(atPath: outputDirectoryPath, isDirectory: &isDirectory)
+
+    if !isDirectory.boolValue {
+      throw ValidationError("Destination must be a directory")
+    }
 
     for url in source {
       let asset = AVAsset(url: url)
 
       let metadata = try await Extractor.extractItems(from: asset)
 
-      let outputURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+      let outputURL = URL(fileURLWithPath: outputDirectoryPath)
         .appendingPathComponent("output-\(Int(Date().timeIntervalSince1970))")
         .appendingPathExtension("mp4")
 
