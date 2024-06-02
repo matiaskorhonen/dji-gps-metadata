@@ -1,6 +1,7 @@
 import AVFoundation
 import ArgumentParser
 import Foundation
+import SwiftPrompt
 
 /*
 # ARG_OPTIONAL_SINGLE([make],[m],[Device make],[DJI])
@@ -68,19 +69,62 @@ struct DJIMetadataFixer: AsyncParsableCommand {
 
       let metadata = try await Extractor.extractItems(from: asset)
 
+      let filename = url.lastPathComponent
       let outputURL = URL(fileURLWithPath: outputDirectoryPath)
-        .appendingPathComponent("output-\(Int(Date().timeIntervalSince1970))")
-        .appendingPathExtension("mp4")
+        .appendingPathComponent(filename)
+
+      var overwrite = false
+      if FileManager.default.fileExists(atPath: outputURL.path) {
+        let options: [PromptOption<Bool>] = [
+          .init(title: "Yes", value: true),
+          .init(title: "No", value: false),
+        ]
+
+        overwrite = Prompt.selectOption(
+          question: "\(outputURL.path) exists. Overwrite?",
+          options: options
+        )
+
+        if !overwrite {
+          // TODO: Implement a better error
+          throw ValidationError("File exists: \(outputURL.path)")
+        }
+      }
+
+      let temporaryDirectoryURL = try FileManager.default.url(
+        for: .itemReplacementDirectory,
+        in: .userDomainMask,
+        appropriateFor: outputURL,
+        create: true
+      )
+      print("Temporary directory: \(temporaryDirectoryURL.path)")
+      let tempItemURL = temporaryDirectoryURL.appendingPathComponent(filename)
+      print("Temporary item: \(tempItemURL.path)")
 
       let exporter = Exporter()
 
-      let url = await exporter.export(
+      let exportURL = await exporter.export(
         avAsset: asset,
         metadata: metadata,
         toFileType: .mp4,
-        atURL: outputURL)
+        atURL: tempItemURL)
 
-      print("Done! \(url?.absoluteString ?? "—")")
+      if exportURL == nil {
+        print("Failed to export \(url.path)")
+        continue
+      }
+
+      if overwrite {
+        // Replace the existing item if it exists
+        try FileManager.default.replaceItem(
+          at: outputURL, withItemAt: exportURL!, backupItemName: "\(filename).bak",
+          options: .usingNewMetadataOnly,
+          resultingItemURL: nil)
+      } else {
+        // Safely move the item to the output directory, throws an error if the
+        // item already exists
+        try FileManager.default.moveItem(at: exportURL!, to: outputURL)
+      }
     }
   }
 }
