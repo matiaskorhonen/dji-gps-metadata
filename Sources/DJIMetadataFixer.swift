@@ -3,31 +3,14 @@ import ArgumentParser
 import Foundation
 import SwiftPrompt
 
-/*
-# ARG_OPTIONAL_SINGLE([make],[m],[Device make],[DJI])
-# ARG_OPTIONAL_SINGLE([model],[d],[Device model],[Mini 2])
-# ARG_OPTIONAL_SINGLE([destination],[o],[Output folder (defaults to same folder as the source file)])
-# ARG_OPTIONAL_BOOLEAN([non-video],[i],[Copy or move non-video source files. Only valid when a destination is set])
-# ARG_OPTIONAL_BOOLEAN([remove-original],[r],[Remove source file after processing])
-# ARG_POSITIONAL_INF([filename],[source MP4 file],[1])
-# ARG_HELP([DJI GPS Metadata for Photos.app])
-*/
-
-/*
-$ ./dji-gps-metadata.sh --help
-DJI GPS Metadata for Photos.app
-Usage: ./dji-gps-metadata.sh [-m|--make <arg>] [-d|--model <arg>] [-o|--destination <arg>] [-i|--(no-)non-video] [-r|--(no-)remove-original] [-h|--help] <filename-1> [<filename-2>] ... [<filename-n>] ...
-	<filename>: source MP4 file
-	-m, --make: Device make (default: 'DJI')
-	-d, --model: Device model (default: 'Mini 2')
-	-o, --destination: Output folder (defaults to same folder as the source file) (no default)
-	-i, --non-video, --no-non-video: Copy or move non-video source files. Only valid when a destination is set (off by default)
-	-r, --remove-original, --no-remove-original: Remove source file after processing (off by default)
-	-h, --help: Prints help
-*/
-
 @main
 struct DJIMetadataFixer: AsyncParsableCommand {
+  static let allowedTypes = [
+    AVFileType.mp4.rawValue,
+    AVFileType.mov.rawValue,
+    AVFileType.m4v.rawValue,
+  ]
+
   static let configuration = CommandConfiguration(abstract: "DJI GPS Metadata for Photos.app")
 
   @Option(name: [.long, .customShort("m")], help: "Device make")
@@ -43,26 +26,52 @@ struct DJIMetadataFixer: AsyncParsableCommand {
     })
   var destination: URL? = nil
 
-  @Flag(
-    name: [.long, .customShort("i")],
-    help: "Copy or move non-video source files. Only valid when a destination is set.")
-  var nonVideo = false
-
-  @Flag(name: [.long, .customShort("r")], help: "Remove source file after processing.")
-  var removeOriginal = false
-
   @Argument(help: "source MP4 file(s)", transform: URL.init(fileURLWithPath:))
   var source: [URL]
 
+  mutating func validate() throws {
+    if let destination = destination {
+      var isDirectory = ObjCBool(true)
+      FileManager.default.fileExists(atPath: destination.path, isDirectory: &isDirectory)
+
+      if !isDirectory.boolValue {
+        throw ValidationError("Destination (\(destination.path)) isn't a directory")
+      }
+    }
+
+    let missingSources = source.compactMap({ url -> String? in
+      guard FileManager.default.isReadableFile(atPath: url.path) else {
+        return url.path
+      }
+
+      return nil
+    })
+
+    guard missingSources.isEmpty else {
+      throw ValidationError(
+        "Unreadable source \(missingSources.count == 1 ? "file": "files"): \(missingSources.joined(separator: ", "))"
+      )
+    }
+
+    let wrongTypes = source.compactMap({ url -> String? in
+      let typeIdentifier = (try? url.resourceValues(forKeys: [.typeIdentifierKey]))
+
+      guard DJIMetadataFixer.allowedTypes.contains(typeIdentifier?.typeIdentifier ?? "") else {
+        return url.path
+      }
+
+      return nil
+    })
+
+    guard wrongTypes.isEmpty else {
+      throw ValidationError(
+        "Invalid source \(wrongTypes.count == 1 ? "file": "files") (not MP4 or QuickTime): \(wrongTypes.joined(separator: ", "))"
+      )
+    }
+  }
+
   mutating func run() async throws {
     let outputDirectoryPath = destination?.path ?? FileManager.default.currentDirectoryPath
-
-    var isDirectory = ObjCBool(true)
-    FileManager.default.fileExists(atPath: outputDirectoryPath, isDirectory: &isDirectory)
-
-    if !isDirectory.boolValue {
-      throw ValidationError("Destination must be a directory")
-    }
 
     for url in source {
       let asset = AVAsset(url: url)
@@ -124,5 +133,11 @@ struct DJIMetadataFixer: AsyncParsableCommand {
         try FileManager.default.moveItem(at: exportURL!, to: outputURL)
       }
     }
+  }
+}
+
+extension URL {
+  var typeIdentifier: String? {
+    (try? resourceValues(forKeys: [.typeIdentifierKey]))?.typeIdentifier
   }
 }
