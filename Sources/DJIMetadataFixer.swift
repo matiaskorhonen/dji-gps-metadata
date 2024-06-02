@@ -97,9 +97,7 @@ struct DJIMetadataFixer: AsyncParsableCommand {
         appropriateFor: outputURL,
         create: true
       )
-      print("Temporary directory: \(temporaryDirectoryURL.path)")
       let tempItemURL = temporaryDirectoryURL.appendingPathComponent(filename)
-      print("Temporary item: \(tempItemURL.path)")
 
       let exporter = Exporter()
 
