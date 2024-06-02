@@ -10,7 +10,6 @@ let package = Package(
   ],
   products: [],
   dependencies: [
-    .package(url: "https://github.com/CheekyGhost-Labs/SwiftPrompt.git", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.4.0"),
     .package(url: "https://github.com/apple/swift-testing.git", branch: "main"),
   ],
@@ -20,8 +19,7 @@ let package = Package(
     .executableTarget(
       name: "DJIMetadataFixer",
       dependencies: [
-        .product(name: "ArgumentParser", package: "swift-argument-parser"),
-        .product(name: "SwiftPrompt", package: "swiftprompt"),
+        .product(name: "ArgumentParser", package: "swift-argument-parser")
       ],
       path: "Sources"
     ),

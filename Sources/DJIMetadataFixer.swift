@@ -1,7 +1,6 @@
 import AVFoundation
 import ArgumentParser
 import Foundation
-import SwiftPrompt
 
 @main
 struct DJIMetadataFixer: AsyncParsableCommand {
@@ -84,15 +83,7 @@ struct DJIMetadataFixer: AsyncParsableCommand {
 
       var overwrite = false
       if FileManager.default.fileExists(atPath: outputURL.path) {
-        let options: [PromptOption<Bool>] = [
-          .init(title: "Yes", value: true),
-          .init(title: "No", value: false),
-        ]
-
-        overwrite = Prompt.selectOption(
-          question: "\(outputURL.path) exists. Overwrite?",
-          options: options
-        )
+        overwrite = prompt("\(outputURL.path) exists. Overwrite?")
 
         if !overwrite {
           // TODO: Implement a better error
@@ -139,5 +130,18 @@ struct DJIMetadataFixer: AsyncParsableCommand {
 extension URL {
   var typeIdentifier: String? {
     (try? resourceValues(forKeys: [.typeIdentifierKey]))?.typeIdentifier
+  }
+}
+
+extension DJIMetadataFixer {
+  func prompt(_ message: String) -> Bool {
+    let yes = ["y", "yes"]
+
+    print("\(message) [y/N]: ", terminator: "")
+    if let response = readLine() {
+      return yes.contains(response.lowercased())
+    }
+
+    return false
   }
 }
