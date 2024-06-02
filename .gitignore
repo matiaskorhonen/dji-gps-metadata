@@ -64,8 +64,10 @@ fastlane/test_output
 # Ignore video and image files
 *.mp4
 *.mp4.*
+*.mov
 *.jpg
 !/Samples/*.mp4
+!/Samples/*.mov
 !/Samples/*.jpg
 
 .vscode/

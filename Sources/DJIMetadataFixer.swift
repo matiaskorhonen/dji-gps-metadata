@@ -80,7 +80,8 @@ struct DJIMetadataFixer: AsyncParsableCommand {
 
       let metadata = try await Extractor.extractItems(from: asset)
 
-      let filename = url.lastPathComponent
+      let basename = NSString(string: url.lastPathComponent).deletingPathExtension
+      let filename = "\(basename).mp4"
       let outputURL = URL(fileURLWithPath: outputDirectoryPath)
         .appendingPathComponent(filename)
 
@@ -116,7 +117,7 @@ struct DJIMetadataFixer: AsyncParsableCommand {
         if overwrite {
           // Replace the existing item if it exists
           try FileManager.default.replaceItem(
-            at: outputURL, withItemAt: exportURL!, backupItemName: "\(filename).bak",
+            at: outputURL, withItemAt: exportURL!, backupItemName: "_\(filename).backup",
             options: .usingNewMetadataOnly,
             resultingItemURL: nil)
         } else {
