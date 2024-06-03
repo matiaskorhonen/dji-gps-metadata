@@ -8,32 +8,24 @@ The GPS location is extracted from the original MP4 files using exiftool and the
 
 ## Dependencies
 
-* bash
-* exiftool (`brew install exiftool`)
-* ffmpeg (`brew install ffmpeg`)
-* avmetareadwrite (from `xcode-select --install` or from Xcode)
-
-### Development dependencies
-
-* Docker
-  * argbash
-  * shfmt
-  * shellcheck
-
-Run `./scripts/check-and-format` before committing changes.
+<!-- TODO: Update dependencies -->
 
 ## Usage
 
-```
-» ./dji-gps-metadata.sh  -h
-DJI GPS Metadata for Photos.app
-Usage: ./dji-gps-metadata.sh [-m|--make <arg>] [-d|--model <arg>] [-r|--(no-)remove-original] [-h|--help] <filename-1> [<filename-2>] ... [<filename-n>] ...
-	<filename>: source MP4 file
-	-m, --make: Device make (default: 'DJI')
-	-d, --model: Device model (default: 'Mini 2')
-	-r, --remove-original, --no-remove-original: Remove original MP4s after processing (off by default)
-	-h, --help: Prints help
-```
+<!-- TODO: Update the usage -->
+
+## Sample files
+
+Video files used for testing (under `Tests/Resources`):
+
+* `DJI_0007.MP4`: Unmodified 4K video recording from a DJI Mini 2
+* `DJI_0007-with-audio.MP4`: 4K video with an added audio track*
+* `DJI_0007.MOV`: 4K video converted to a QuickTime movie file
+* `DJI_0010-with-audio.MP4`: Unmodified 4K video recording from a DJI Mini 2
+* `DJI_0010.MP4`: 4K video with an added audio track*
+
+\* Source: <https://archive.org/details/PachelbelsCanoninD>
+
 
 ## MIT License
 

@@ -4,8 +4,7 @@ import Testing
 
 @Suite struct ExtractorTests {
   @Test func extractAtoms() async throws {
-    let assetURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-      .appendingPathComponent("Samples/DJI_0007.MP4")
+    let assetURL = resourceURL("DJI_0007.MP4")
 
     let avAsset = AVAsset(url: assetURL)
 
@@ -26,8 +25,7 @@ import Testing
   }
 
   @Test func extractAtomsTwo() async throws {
-    let assetURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-      .appendingPathComponent("Samples/DJI_0010.MP4")
+    let assetURL = resourceURL("DJI_0010.MP4")
 
     let avAsset = AVAsset(url: assetURL)
 
@@ -45,5 +43,12 @@ import Testing
     #expect(metadata["uiso/©grl"] == "+0.00", "Camera Roll should match")
     #expect(metadata["uiso/©mdl"] == "FC7303", "Device model number should match")
     #expect(metadata["uiso/©csn"] == "1SFOJ8J0AB0GAM", "Serial number should match")
+  }
+
+  func resourceURL(_ filename: String) -> URL {
+    return URL(fileURLWithPath: #file)
+      .deletingLastPathComponent()
+      .appendingPathComponent("Resources")
+      .appendingPathComponent(filename)
   }
 }

@@ -66,8 +66,8 @@ fastlane/test_output
 *.mp4.*
 *.mov
 *.jpg
-!/Samples/*.mp4
-!/Samples/*.mov
-!/Samples/*.jpg
+!/Tests/Resources/*.mp4
+!/Tests/Resources/*.mov
+!/Tests/Resources/*.jpg
 
 .vscode/
