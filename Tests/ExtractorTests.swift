@@ -3,7 +3,7 @@ import DJIMetadataFixer
 import Testing
 
 @Suite struct ExtractorTests {
-  @Test func extractAtoms() async throws {
+  @Test func extractAtoms0007() async throws {
     let assetURL = resourceURL("DJI_0007.MP4")
 
     let avAsset = AVAsset(url: assetURL)
@@ -24,7 +24,7 @@ import Testing
     #expect(metadata["uiso/©csn"] == "1SFOJ8J0AB0GAM", "Serial number should match")
   }
 
-  @Test func extractAtomsTwo() async throws {
+  @Test func extractAtoms0010() async throws {
     let assetURL = resourceURL("DJI_0010.MP4")
 
     let avAsset = AVAsset(url: assetURL)
