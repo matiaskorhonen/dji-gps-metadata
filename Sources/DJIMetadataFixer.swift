@@ -102,7 +102,7 @@ extension DJIMetadataFixer {
       for url in source {
         let asset = AVAsset(url: url)
 
-        let metadata = try await Extractor.extractItems(from: asset)
+        let metadata = try await Extractor.extractItems(from: asset, make: make, model: model)
 
         let basename = NSString(string: url.lastPathComponent).deletingPathExtension
         let filename = "\(basename).mp4"

@@ -100,7 +100,9 @@ public struct Extractor {
     // uiso/©mdl → Model number
   ]
 
-  public static func extractMetadata(from asset: AVAsset) async throws -> [String: String] {
+  public static func extractMetadata(from asset: AVAsset)
+    async throws -> [String: String]
+  {
     var parsedMetadata: [String: String] = [:]
     let metadataFormats = try await asset.load(.availableMetadataFormats)
 
@@ -152,8 +154,24 @@ public struct Extractor {
     return parsedMetadata
   }
 
-  public static func extractItems(from asset: AVAsset) async throws -> [AVMetadataItem] {
-    let metadata = try await self.extractMetadata(from: asset)
+  public static func extractItems(from asset: AVAsset, make: String?, model: String?) async throws
+    -> [AVMetadataItem]
+  {
+    var metadata = try await self.extractMetadata(from: asset)
+
+    metadata["make"] = make
+    metadata["model"] = model
+
+    if let modelNumber = metadata["uiso/©mdl"],
+      let device = DeviceList.lookup(for: modelNumber)
+    {
+      if metadata["make"] == nil {
+        metadata["make"] = device.make
+      }
+      if metadata["model"] == nil {
+        metadata["model"] = device.model
+      }
+    }
 
     let items: [AVMetadataItem] = metadata.compactMap { (key: String, value: String) in
       if let template = self.knownFormats[key] {
@@ -161,12 +179,17 @@ public struct Extractor {
         item.identifier = template.identifier
         item.value = value as NSString
         item.dataType = template.dataType
+        item.locale = Locale(identifier: "en_US")
+        item.extendedLanguageTag = "und"
 
-        return item
+        return item.copy() as? AVMetadataItem
       } else {
         return nil
       }
     }
+
+    // TODO: figure out why the make and model aren't being persisted
+    print(items)
 
     return items
   }
