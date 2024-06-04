@@ -56,7 +56,7 @@ enum AtomType: String {
   case unknown
 }
 
-class Atom {
+class Atom: CustomDebugStringConvertible {
   let size: UInt32
   let type: AtomType
   let data: Data
@@ -64,6 +64,10 @@ class Atom {
   var unknown: Bool = false
 
   var children: [Atom] = []
+
+  var debugDescription: String {
+    "Atom(size=\(size), type=\(type), children=\(children.count))"
+  }
 
   init(size: UInt32, type: AtomType, data: Data) {
     self.size = size
@@ -133,105 +137,9 @@ class Atom {
     }
   }
 
-  class FTYP: Atom {
-    var majorBrand: String? {
-      String(data: data[0..<4], encoding: .utf8)
-    }
-    var minorVersion: UInt32 {
-      return 0
-    }
-    var compatibleBrands: [String] {
-      var brands = [String?]()
-      for i in stride(from: 8, to: data.count, by: 4) {
-        brands.append(String(data: data[i..<(i + 4)], encoding: .utf8))
-      }
-      return brands.compactMap { $0 }
-    }
-  }
+}
 
-  class MDAT: Atom {
-    override init(
-      size: UInt32, type: AtomType, data: Data
-    ) {
-      super.init(size: size, type: type, data: data)
-      self.binary = true
-      self.unknown = true
-    }
-  }
-
-  class SKIP: Atom {
-    override init(
-      size: UInt32, type: AtomType, data: Data
-    ) {
-      super.init(size: size, type: type, data: data)
-      self.binary = true
-      self.unknown = true
-    }
-  }
-
-  class MOOV: Atom {}
-  class MVHD: Atom {
-    var version: UInt8 {
-      return UInt8(data[0])
-    }
-    var flags: [UInt8] {
-      [UInt8(data[1]), UInt8(data[2]), UInt8(data[3])]
-    }
-    var creationTime: Date {
-      let timeBytes = [UInt8](data[(data.startIndex + 4)..<(data.startIndex + 8)])
-      print("creationTime Bytes \(timeBytes)")
-
-      let size = timeBytes.reduce(0) { soFar, byte in
-        return soFar << 8 | UInt32(byte)
-      }
-
-      // The difference between the Unix timestamp epoch (1970) and the Mac
-      // timestamp epoch (1904) is 2082844800 seconds
-      return Date(timeIntervalSince1970: TimeInterval(2_082_844_800 + size))
-    }
-    var modificationTime: Date {
-      let timeBytes = [UInt8](data[(data.startIndex + 8)..<(data.startIndex + 12)])
-      print("modificationTime Bytes \(timeBytes)")
-
-      let size = timeBytes.reduce(0) { soFar, byte in
-        return soFar << 8 | UInt32(byte)
-      }
-
-      // The difference between the Unix timestamp epoch (1970) and the Mac
-      // timestamp epoch (1904) is 2082844800 seconds
-      return Date(timeIntervalSince1970: TimeInterval(2_082_844_800 + size))
-    }
-    var timeScale: UInt32 {
-      return 0
-    }
-    var duration: UInt32 {
-      return 0
-    }
-    var preferredRate: UInt32 {
-      return 0
-    }
-    var preferredVolume: Float {
-      return 0
-    }
-    var nextTrackID: UInt32 {
-      return 0
-    }
-
-    var description: String {
-      return """
-        Atom.MVHD:
-          version: \(version)
-          flags: \(flags)
-          creationTime: \(creationTime)
-          modificationTime: \(modificationTime)
-          timeScale: \(timeScale)
-          duration: \(duration)
-          preferredRate: \(preferredRate)
-          preferredVolume: \(preferredVolume)
-          nextTrackID: \(nextTrackID)
-        """
-    }
-  }
+extension Atom {
   class TRAK: Atom {}
   class TKHD: Atom {}
   class MDIA: Atom {}
@@ -261,23 +169,16 @@ struct MP4Parser {
       print("Cursor: \(cursor)/\(data.count)")
 
       let sizeBytes = [UInt8](data[cursor..<(cursor + 4)])
-      print("sizeBytes \(sizeBytes)")
 
       let size = sizeBytes.reduce(0) { soFar, byte in
         return soFar << 8 | UInt32(byte)
       }
 
-      print("Size: \(size)")
-
       let atomData = data[cursor + 4..<(cursor + Int(size))]
-      if atomData.count < 128 {
-        print("data: \(atomData.hex())")
-      }
 
       let atom = Atom.from(size: size, data: atomData)
       print(atom)
 
-      print("Next cursor: \(cursor)")
       cursor += Int(size)
     }
 
