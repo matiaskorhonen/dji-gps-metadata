@@ -189,7 +189,7 @@ public struct Extractor {
     }
 
     // TODO: figure out why the make and model aren't being persisted
-    print(items)
+    // print(items)
 
     return items
   }

@@ -17,50 +17,17 @@ struct DJIMetadataFixer: AsyncParsableCommand {
         If the make and model are not provided, the app will attempt to extract
         them from the video metadata and map the device to a known model.
       """,
-    subcommands: [Fix.self, ListDevices.self],
+    subcommands: [Fix.self, ParseMetadata.self, ListDevices.self],
     defaultSubcommand: Fix.self
   )
 }
 
 extension DJIMetadataFixer {
-  struct Fix: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
-      abstract: "Fixes the GPS metadata in DJI MP4 files",
-      discussion: """
-          If the make and model are not provided, the app will attempt to extract
-          them from the video metadata and map the device to a known model.
-        """
-    )
-
-    @Option(name: [.long, .customShort("m")], help: "Device make (e.g. 'DJI')")
-    var make: String?
-
-    @Option(name: [.long, .customShort("d")], help: "Device model (e.g. 'Mini 3 Pro')")
-    var model: String?
-
-    @Option(
-      name: [.long, .customShort("o")], help: "Output folder",
-      transform: { value in
-        URL(fileURLWithPath: value)
-      })
-    var destination: URL? = nil
-
-    @Flag(name: [.long, .short], help: "Overwrite existing files without prompting")
-    var force = false
-
+  struct SharedOptions: ParsableArguments {
     @Argument(help: "source MP4 file(s)", transform: URL.init(fileURLWithPath:))
     var source: [URL] = []
 
     mutating func validate() throws {
-      if let destination = destination {
-        var isDirectory = ObjCBool(true)
-        FileManager.default.fileExists(atPath: destination.path, isDirectory: &isDirectory)
-
-        if !isDirectory.boolValue {
-          throw ValidationError("Destination (\(destination.path)) isn't a directory")
-        }
-      }
-
       guard !source.isEmpty else {
         throw ValidationError("Missing expected argument '<source> ...'")
       }
@@ -95,11 +62,52 @@ extension DJIMetadataFixer {
         )
       }
     }
+  }
+}
+
+extension DJIMetadataFixer {
+  struct Fix: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+      abstract: "Fixes the GPS metadata in DJI MP4 files",
+      discussion: """
+          If the make and model are not provided, the app will attempt to extract
+          them from the video metadata and map the device to a known model.
+        """
+    )
+
+    @Option(name: [.long, .customShort("m")], help: "Device make (e.g. 'DJI')")
+    var make: String?
+
+    @Option(name: [.long, .customShort("d")], help: "Device model (e.g. 'Mini 3 Pro')")
+    var model: String?
+
+    @Option(
+      name: [.long, .customShort("o")], help: "Output folder",
+      transform: { value in
+        URL(fileURLWithPath: value)
+      })
+    var destination: URL? = nil
+
+    @Flag(name: [.long, .short], help: "Overwrite existing files without prompting")
+    var force = false
+
+    @OptionGroup var options: DJIMetadataFixer.SharedOptions
+
+    mutating func validate() throws {
+      if let destination = destination {
+        var isDirectory = ObjCBool(true)
+        FileManager.default.fileExists(atPath: destination.path, isDirectory: &isDirectory)
+
+        if !isDirectory.boolValue {
+          throw ValidationError("Destination (\(destination.path)) isn't a directory")
+        }
+      }
+    }
 
     mutating func run() async throws {
       let outputDirectoryPath = destination?.path ?? FileManager.default.currentDirectoryPath
 
-      for url in source {
+      for url in options.source {
         let asset = AVAsset(url: url)
 
         let metadata = try await Extractor.extractItems(from: asset, make: make, model: model)
@@ -125,7 +133,11 @@ extension DJIMetadataFixer {
           appropriateFor: outputURL,
           create: true
         )
-        let tempItemURL = temporaryDirectoryURL.appendingPathComponent(filename)
+        let uuid = UUID().uuidString
+        let tempItemURL =
+          temporaryDirectoryURL
+          .appendingPathComponent(uuid)
+          .appendingPathExtension(for: .mpeg4Movie)
 
         let exporter = Exporter()
 
@@ -175,6 +187,26 @@ extension DJIMetadataFixer {
         → \(DJIMetadataFixer.issueURL)
         """
       )
+    }
+  }
+}
+
+extension DJIMetadataFixer {
+  struct ParseMetadata: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+      commandName: "metadata",
+      abstract: "Parse the metadata from a video file",
+      discussion: """
+          This command will parse the metadata from a video file and print it to the console.
+        """
+    )
+
+    @OptionGroup var options: DJIMetadataFixer.SharedOptions
+
+    mutating func run() async throws {
+      for url in options.source {
+        MP4Parser.parse(url)
+      }
     }
   }
 }
