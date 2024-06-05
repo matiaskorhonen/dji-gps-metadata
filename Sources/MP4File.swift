@@ -1,20 +1,26 @@
 import Foundation
 
+protocol AtomParser {
+
+}
+
 struct MP4File {
   let data: Data
-  var atoms: [Atom] = []
+  let children: [Atom]
 
   init(_ url: URL) {
     self.data = try! Data(contentsOf: url, options: .alwaysMapped)
-    parse()
+    children = MP4File.parse(self.data)
   }
 
-  private mutating func parse() {
+  static func parse(_ data: Data) -> [Atom] {
     var cursor = 0
-    while cursor < data.count {
+    var atoms: [Atom] = []
+
+    while cursor < data.endIndex {
       print("Cursor: \(cursor)/\(data.count)")
 
-      let sizeBytes = [UInt8](data[cursor..<(cursor + 4)])
+      let sizeBytes = [UInt8](data[data.startIndex + cursor..<(cursor + 4)])
 
       let size = sizeBytes.reduce(0) { soFar, byte in
         return soFar << 8 | UInt32(byte)
@@ -27,5 +33,7 @@ struct MP4File {
 
       cursor += Int(size)
     }
+
+    return atoms
   }
 }
