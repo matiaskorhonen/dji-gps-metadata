@@ -2,8 +2,6 @@ import Foundation
 
 // MARK: All atoms that don't have a specific implementation yet
 extension Atom {
-  class TRAK: Atom {}
-  class TKHD: Atom {}
   class MDIA: Atom {}
   class MDHD: Atom {}
   class HDLR: Atom {}
@@ -18,6 +16,5 @@ extension Atom {
   class STSC: Atom {}
   class STSZ: Atom {}
   class STCO: Atom {}
-  class UDTA: Atom {}
   class Unknown: Atom {}
 }
