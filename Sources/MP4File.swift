@@ -1,9 +1,15 @@
 import Foundation
 
-struct MP4Parser {
-  static func parse(_ url: URL) {
-    let data = try! Data(contentsOf: url, options: .alwaysMapped)
+struct MP4File {
+  let data: Data
+  var atoms: [Atom] = []
 
+  init(_ url: URL) {
+    self.data = try! Data(contentsOf: url, options: .alwaysMapped)
+    parse()
+  }
+
+  private mutating func parse() {
     var cursor = 0
     while cursor < data.count {
       print("Cursor: \(cursor)/\(data.count)")
@@ -17,7 +23,7 @@ struct MP4Parser {
       let atomData = data[cursor + 4..<(cursor + Int(size))]
 
       let atom = Atom.from(data: atomData)
-      print(atom)
+      atoms.append(atom)
 
       cursor += Int(size)
     }

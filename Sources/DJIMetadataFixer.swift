@@ -205,7 +205,7 @@ extension DJIMetadataFixer {
 
     mutating func run() async throws {
       for url in options.source {
-        MP4Parser.parse(url)
+        let _ = MP4File(url)
       }
     }
   }
