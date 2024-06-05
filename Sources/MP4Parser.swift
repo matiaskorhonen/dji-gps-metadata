@@ -75,7 +75,7 @@ class Atom: CustomDebugStringConvertible {
 
   static func from(data: Data) -> Atom {
     let typeBytes = data.subdata(in: (data.startIndex)..<(data.startIndex + 4))
-    print("Type bytes: \(typeBytes.hex())")
+    print("Type bytes: \(typeBytes.hex)")
 
     let type = String(data: typeBytes, encoding: .utf8) ?? "unknown"
     print("Type str: \(type)")
