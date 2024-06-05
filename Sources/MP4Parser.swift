@@ -57,7 +57,6 @@ enum AtomType: String {
 }
 
 class Atom: CustomDebugStringConvertible {
-  let size: UInt32
   let type: AtomType
   let data: Data
   var binary: Bool = false
@@ -66,18 +65,15 @@ class Atom: CustomDebugStringConvertible {
   var children: [Atom] = []
 
   var debugDescription: String {
-    "Atom(size=\(size), type=\(type), children=\(children.count))"
+    "Atom(type=\(type), children=\(children.count))"
   }
 
-  init(size: UInt32, type: AtomType, data: Data) {
-    self.size = size
+  init(type: AtomType, data: Data) {
     self.type = type
     self.data = data
   }
 
-  static func from(size: UInt32, data: Data) -> Atom {
-    print("Atom size: \(size)")
-
+  static func from(data: Data) -> Atom {
     let typeBytes = data.subdata(in: (data.startIndex)..<(data.startIndex + 4))
     print("Type bytes: \(typeBytes.hex())")
 
@@ -89,51 +85,51 @@ class Atom: CustomDebugStringConvertible {
 
     switch atomType {
     case .ftyp:
-      return FTYP(size: size, type: atomType, data: data)
+      return FTYP(type: atomType, data: data)
     case .mdat:
-      return MDAT(size: size, type: atomType, data: data)
+      return MDAT(type: atomType, data: data)
     case .wide, .free, .skip:
-      return SKIP(size: size, type: atomType, data: data)
+      return SKIP(type: atomType, data: data)
     case .mdhd:
-      return MDHD(size: size, type: atomType, data: data)
+      return MDHD(type: atomType, data: data)
     case .mvhd:
-      return MVHD(size: size, type: atomType, data: data)
+      return MVHD(type: atomType, data: data)
     case .moov:
-      return MOOV(size: size, type: atomType, data: data)
+      return MOOV(type: atomType, data: data)
     case .trak:
-      return TRAK(size: size, type: atomType, data: data)
+      return TRAK(type: atomType, data: data)
     case .tkhd:
-      return TKHD(size: size, type: atomType, data: data)
+      return TKHD(type: atomType, data: data)
     case .mdia:
-      return MDIA(size: size, type: atomType, data: data)
+      return MDIA(type: atomType, data: data)
     case .hdlr:
-      return HDLR(size: size, type: atomType, data: data)
+      return HDLR(type: atomType, data: data)
     case .minf:
-      return MINF(size: size, type: atomType, data: data)
+      return MINF(type: atomType, data: data)
     case .vmhd:
-      return VMHD(size: size, type: atomType, data: data)
+      return VMHD(type: atomType, data: data)
     case .dinf:
-      return DINF(size: size, type: atomType, data: data)
+      return DINF(type: atomType, data: data)
     case .dref:
-      return DREF(size: size, type: atomType, data: data)
+      return DREF(type: atomType, data: data)
     case .stbl:
-      return STBL(size: size, type: atomType, data: data)
+      return STBL(type: atomType, data: data)
     case .stsd:
-      return STSD(size: size, type: atomType, data: data)
+      return STSD(type: atomType, data: data)
     case .stts:
-      return STTS(size: size, type: atomType, data: data)
+      return STTS(type: atomType, data: data)
     case .stss:
-      return STSS(size: size, type: atomType, data: data)
+      return STSS(type: atomType, data: data)
     case .stsc:
-      return STSC(size: size, type: atomType, data: data)
+      return STSC(type: atomType, data: data)
     case .stsz:
-      return STSZ(size: size, type: atomType, data: data)
+      return STSZ(type: atomType, data: data)
     case .stco:
-      return STCO(size: size, type: atomType, data: data)
+      return STCO(type: atomType, data: data)
     case .udta:
-      return UDTA(size: size, type: atomType, data: data)
+      return UDTA(type: atomType, data: data)
     case .unknown:
-      return Unknown(size: size, type: atomType, data: data)
+      return Unknown(type: atomType, data: data)
     }
   }
 
@@ -176,7 +172,7 @@ struct MP4Parser {
 
       let atomData = data[cursor + 4..<(cursor + Int(size))]
 
-      let atom = Atom.from(size: size, data: atomData)
+      let atom = Atom.from(data: atomData)
       print(atom)
 
       cursor += Int(size)

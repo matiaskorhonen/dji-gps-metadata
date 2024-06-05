@@ -31,7 +31,6 @@ extension Atom {
     override var debugDescription: String {
       return """
         Atom(
-          size=\(size),
           type=\(type),
           children=\(children.count)
           majorBrand=\(majorBrand ?? "nil")
