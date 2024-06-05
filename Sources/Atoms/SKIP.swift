@@ -3,9 +3,9 @@ import Foundation
 extension Atom {
   class SKIP: Atom {
     override init(
-      type: AtomType, data: Data
+      data: Data
     ) {
-      super.init(type: type, data: data)
+      super.init(data: data)
       self.binary = true
       self.unknown = true
     }

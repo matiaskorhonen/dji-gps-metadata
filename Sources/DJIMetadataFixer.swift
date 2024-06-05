@@ -205,7 +205,16 @@ extension DJIMetadataFixer {
 
     mutating func run() async throws {
       for url in options.source {
-        let _ = MP4File(url)
+        let mp4File = MP4File(url)
+        for atom in mp4File.children {
+          print(atom)
+          if atom.children.count > 0 {
+            print("  Children:")
+            for child in atom.children {
+              print("  \(child)")
+            }
+          }
+        }
       }
     }
   }

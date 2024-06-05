@@ -14,19 +14,17 @@ struct MP4File {
   }
 
   static func parse(_ data: Data) -> [Atom] {
-    var cursor = 0
+    var cursor: Int = data.startIndex
     var atoms: [Atom] = []
 
     while cursor < data.endIndex {
-      print("Cursor: \(cursor)/\(data.count)")
-
-      let sizeBytes = [UInt8](data[data.startIndex + cursor..<(cursor + 4)])
+      let sizeBytes = [UInt8](data[cursor..<(cursor + 4)])
 
       let size = sizeBytes.reduce(0) { soFar, byte in
         return soFar << 8 | UInt32(byte)
       }
 
-      let atomData = data[cursor + 4..<(cursor + Int(size))]
+      let atomData = data[cursor..<(cursor + Int(size))]
 
       let atom = Atom.from(data: atomData)
       atoms.append(atom)
