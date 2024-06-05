@@ -4,8 +4,35 @@ import Foundation
 // * https://github.com/corkami/formats/blob/master/container/mp4.md
 // * https://www.cimarronsystems.com/wp-content/uploads/2017/04/Elements-of-the-H.264-VideoAAC-Audio-MP4-Movie-v2_0.pdf
 
-enum AtomType: String {
-  // case root
+enum AtomType: CaseIterable {
+  static var allCases: [AtomType] {
+    return [
+      .ftyp,
+      .free,
+      .wide,
+      .skip,
+      .mdat,
+      .moov,
+      .mvhd,
+      .trak,
+      .tkhd,
+      .mdia,
+      .mdhd,
+      .hdlr,
+      .minf,
+      .vmhd,
+      .dinf,
+      .dref,
+      .stbl,
+      .stsd,
+      .stts,
+      .stss,
+      .stsc,
+      .stsz,
+      .stco,
+      .udta,
+    ]
+  }
 
   // File Type, Free, and Media Data Atoms
   case ftyp
@@ -53,5 +80,6 @@ enum AtomType: String {
   case udta
 
   // Unrecognized atom type
-  case unknown
+  case userDataItem(String)
+  case unknown(String)
 }

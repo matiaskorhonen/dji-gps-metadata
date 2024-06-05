@@ -67,12 +67,18 @@ class Atom: CustomDebugStringConvertible {
       return UDTA(data: data)
     case .unknown:
       return Unknown(data: data)
+    case .userDataItem:
+      return UserDataItem(data: data)
     }
   }
 
   static func parseAtomType(from data: Data) -> AtomType {
     let typeBytes = data[(data.startIndex + 4)..<(data.startIndex + 8)]
-    let type = String(data: typeBytes, encoding: .utf8) ?? "unknown"
-    return AtomType(rawValue: type) ?? .unknown
+    let typeStr = String(data: typeBytes, encoding: .macOSRoman) ?? "unknown"
+    let type =
+      AtomType.allCases.first(where: { String(describing: $0) == typeStr })
+      ?? .userDataItem(typeStr)
+
+    return type
   }
 }

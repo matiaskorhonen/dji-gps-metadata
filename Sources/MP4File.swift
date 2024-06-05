@@ -1,9 +1,5 @@
 import Foundation
 
-protocol AtomParser {
-
-}
-
 struct MP4File {
   let data: Data
   let children: [Atom]
