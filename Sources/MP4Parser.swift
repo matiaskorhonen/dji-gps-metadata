@@ -177,9 +177,5 @@ struct MP4Parser {
 
       cursor += Int(size)
     }
-extension Data {
-  func hex() -> String {
-    self.reduce("") { $0 + String(format: "%02x ", $1) }
-      .trimmingCharacters(in: .whitespacesAndNewlines)
   }
 }
