@@ -30,11 +30,7 @@ let package = Package(
         .product(name: "Testing", package: "swift-testing"),
       ],
       resources: [
-        .copy("Resources/DJI_0007.MOV"),
-        .copy("Resources/DJI_0007.MP4"),
-        .copy("Resources/DJI_0007-with-audio.MP4"),
-        .copy("Resources/DJI_0010.MP4"),
-        .copy("Resources/DJI_0010-with-audio.MP4"),
+        .copy("Resources")
       ]
     ),
 

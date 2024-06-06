@@ -1,2 +1,1 @@
-*.MP4 filter=lfs diff=lfs merge=lfs -text
-*.MOV filter=lfs diff=lfs merge=lfs -text
+/Tests/Resources/*.* filter=lfs diff=lfs merge=lfs -text
