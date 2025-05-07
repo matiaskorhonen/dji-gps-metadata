@@ -62,12 +62,12 @@ public struct Extractor {
   static let knownFormats: [String: MetadataTemplate] = [
     // GPS Coordinates
     "uiso/©xyz": MetadataTemplate(
-      identifier: .commonIdentifierLocation,
-      dataType: kCMMetadataBaseDataType_UTF8 as String
+      identifier: .quickTimeMetadataLocationISO6709,
+      dataType: kCMMetadataDataType_QuickTimeMetadataLocation_ISO6709 as String
     ),
     // File create date
     "createDate": MetadataTemplate(
-      identifier: .commonIdentifierCreationDate,
+      identifier: .quickTimeMetadataCreationDate,
       dataType: kCMMetadataBaseDataType_UTF8 as String
     ),
     // Device make
