@@ -108,24 +108,10 @@ extension DJIMetadataFixer {
       let outputDirectoryPath = destination?.path ?? FileManager.default.currentDirectoryPath
 
       for url in options.source {
-        let asset = AVAsset(url: url)
-
-        let metadata = try await Extractor.extractItems(from: asset, make: make, model: model)
-
         let basename = NSString(string: url.lastPathComponent).deletingPathExtension
         let filename = "\(basename).mp4"
         let outputURL = URL(fileURLWithPath: outputDirectoryPath)
           .appendingPathComponent(filename)
-
-        var overwrite = force
-        if !overwrite && FileManager.default.fileExists(atPath: outputURL.path) {
-          overwrite = prompt("\(outputURL.path) exists. Overwrite?")
-
-          if !overwrite {
-            // TODO: Implement a better error
-            throw ValidationError("File exists: \(outputURL.path)")
-          }
-        }
 
         let temporaryDirectoryURL = try FileManager.default.url(
           for: .itemReplacementDirectory,
@@ -139,31 +125,62 @@ extension DJIMetadataFixer {
           .appendingPathComponent(uuid)
           .appendingPathExtension(for: .mpeg4Movie)
 
-        let exporter = Exporter()
+        try FileManager.default.copyItem(at: url, to: tempItemURL)
 
-        let exportURL = await exporter.export(
-          avAsset: asset,
-          metadata: metadata,
-          toFileType: .mp4,
-          atURL: tempItemURL)
+        let asset = AVMutableMovie(url: tempItemURL)
+        // let asset = AVAsset(url: url)
 
-        if exportURL == nil {
-          print("Failed to export \(url.path)")
-        } else {
-          if overwrite {
-            // Replace the existing item if it exists
-            try FileManager.default.replaceItem(
-              at: outputURL, withItemAt: exportURL!, backupItemName: "_\(filename).backup",
-              options: .usingNewMetadataOnly,
-              resultingItemURL: nil)
-          } else {
-            // Safely move the item to the output directory, throws an error if the
-            // item already exists
-            try FileManager.default.moveItem(at: exportURL!, to: outputURL)
+        let metadata = try await Extractor.extractItems(from: asset, make: make, model: model)
+
+        var overwrite = force
+        if !overwrite && FileManager.default.fileExists(atPath: outputURL.path) {
+          overwrite = prompt("\(outputURL.path) exists. Overwrite?")
+
+          if !overwrite {
+            // TODO: Implement a better error
+            throw ValidationError("File exists: \(outputURL.path)")
           }
-
-          print("Exported \(url.lastPathComponent) to \(outputURL.path)")
         }
+
+        print("Temp item: \(tempItemURL.path)")
+
+        asset.metadata = metadata
+
+        // print("Metadata: \(asset.metadata)")
+
+        try asset.writeHeader(
+          to: tempItemURL,
+          fileType: .mp4,
+          options: .addMovieHeaderToDestination
+        )
+
+        print("Wrote header to \(tempItemURL.path)")
+
+        // let exporter = Exporter()
+
+        // let exportURL = await exporter.export(
+        //   avAsset: asset,
+        //   metadata: metadata,
+        //   toFileType: .mp4,
+        //   atURL: tempItemURL)
+
+        // if exportURL == nil {
+        //   print("Failed to export \(url.path)")
+        // } else {
+        //   if overwrite {
+        //     // Replace the existing item if it exists
+        //     try FileManager.default.replaceItem(
+        //       at: outputURL, withItemAt: exportURL!, backupItemName: "_\(filename).backup",
+        //       options: .usingNewMetadataOnly,
+        //       resultingItemURL: nil)
+        //   } else {
+        //     // Safely move the item to the output directory, throws an error if the
+        //     // item already exists
+        //     try FileManager.default.moveItem(at: exportURL!, to: outputURL)
+        //   }
+
+        //   print("Exported \(url.lastPathComponent) to \(outputURL.path)")
+        // }
       }
     }
   }
