@@ -81,10 +81,18 @@ public struct Extractor {
       dataType: kCMMetadataBaseDataType_UTF8 as String
     ),
     // File comment
-    // "comment": MetadataTemplate(
-    //   identifier: .commonIdentifierDescription,
-    //   dataType: kCMMetadataBaseDataType_UTF8 as String
-    // ),
+    "comment": MetadataTemplate(
+      identifier: .commonIdentifierDescription,
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    "title": MetadataTemplate(
+      identifier: .commonIdentifierTitle,
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    "description": MetadataTemplate(
+      identifier: .commonIdentifierDescription,
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
     // Other fields that can be read but don't have a known AVMetadataIdentifier:
     //
     // uiso/©xsp → Speed X
@@ -173,20 +181,37 @@ public struct Extractor {
       }
     }
 
+    metadata["description"] = "Test description"
+    metadata["title"] = "Test title"
+
+    // let item = AVMutableMetadataItem()
+    // // item.dataType = kCMMetadataBaseDataType_RawData as String
+    // item.identifier = .iTunesMetadataDescription
+    // item.value = Data("Some value".utf8) as NSData
+
+    // let model = "Creator"
+    // let modelItem = AVMutableMetadataItem()
+    // item.identifier = .iTunesMetadataCredits
+    // modelItem.value = model as (NSCopying & NSObjectProtocol)
+
     let items: [AVMetadataItem] = metadata.compactMap { (key: String, value: String) in
       if let template = self.knownFormats[key] {
         let item = AVMutableMetadataItem()
         item.identifier = template.identifier
-        item.value = value as NSString
+        item.value = value as (NSCopying & NSObjectProtocol)
         item.dataType = template.dataType
-        item.locale = Locale(identifier: "en_US")
+        item.locale = Locale.current
+        item.extraAttributes = nil
         item.extendedLanguageTag = "und"
 
-        return item.copy() as? AVMetadataItem
+        return (item.copy() as! AVMetadataItem)
       } else {
         return nil
       }
     }
+
+    // items.append(item)
+    // items.append(modelItem)
 
     // TODO: figure out why the make and model aren't being persisted
     // print(items)

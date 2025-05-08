@@ -123,14 +123,17 @@ extension DJIMetadataFixer {
         let tempItemURL =
           temporaryDirectoryURL
           .appendingPathComponent(uuid)
-          .appendingPathExtension(for: .mpeg4Movie)
+          .appendingPathExtension(for: .quickTimeMovie)
 
-        try FileManager.default.copyItem(at: url, to: tempItemURL)
+        // try FileManager.default.copyItem(at: url, to: tempItemURL)
 
-        let asset = AVMutableMovie(url: tempItemURL)
-        // let asset = AVAsset(url: url)
+        let asset = AVMutableMovie(url: url)
 
-        let metadata = try await Extractor.extractItems(from: asset, make: make, model: model)
+        let metadata = try await Extractor.extractItems(
+          from: asset,
+          make: make,
+          model: model
+        )
 
         var overwrite = force
         if !overwrite && FileManager.default.fileExists(atPath: outputURL.path) {
@@ -142,19 +145,30 @@ extension DJIMetadataFixer {
           }
         }
 
+        print("availableMetadataFormats \(asset.availableMetadataFormats)")
+
         print("Temp item: \(tempItemURL.path)")
 
-        asset.metadata = metadata
+        // try asset.writeHeader(
+        //   to: tempItemURL,
+        //   fileType: .mp4,
+        //   options: .addMovieHeaderToDestination
+        // )
 
-        // print("Metadata: \(asset.metadata)")
+        await AVAssetExportSession.compatibility(
+          ofExportPreset: AVAssetExportPresetPassthrough, with: asset, outputFileType: .mov)
 
-        try asset.writeHeader(
-          to: tempItemURL,
-          fileType: .mp4,
-          options: .addMovieHeaderToDestination
-        )
+        let exportSession = AVAssetExportSession(
+          asset: asset,
+          presetName: AVAssetExportPresetPassthrough)!
 
-        print("Wrote header to \(tempItemURL.path)")
+        exportSession.metadata = metadata
+        exportSession.outputFileType = .mov
+        exportSession.outputURL = tempItemURL
+
+        await exportSession.export()
+
+        print("Wrote to \(tempItemURL.path)")
 
         // let exporter = Exporter()
 
