@@ -127,7 +127,7 @@ extension DJIMetadataFixer {
 
         // try FileManager.default.copyItem(at: url, to: tempItemURL)
 
-        let asset = AVMutableMovie(url: url)
+        let asset = AVAsset(url: url)
 
         let metadata = try await Extractor.extractItems(
           from: asset,
@@ -162,6 +162,13 @@ extension DJIMetadataFixer {
           asset: asset,
           presetName: AVAssetExportPresetPassthrough)!
 
+        exportSession.shouldOptimizeForNetworkUse = true
+
+        if #available(macOS 13.0, *) {
+          exportSession.audioTrackGroupHandling = .preserveAlternateTracks
+        }
+
+        exportSession.shouldOptimizeForNetworkUse = true
         exportSession.metadata = metadata
         exportSession.outputFileType = .mov
         exportSession.outputURL = tempItemURL

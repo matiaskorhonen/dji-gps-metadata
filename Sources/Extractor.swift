@@ -4,35 +4,35 @@ struct MetadataTemplate {
   var identifier: AVMetadataIdentifier
   var dataType: String
 
-  func standardDecode(data: Data) -> String? {
-    let type = Int(data[0])
-    let size = Int(data[1])
+  // func standardDecode(data: Data) -> String? {
+  //   let type = Int(data[0])
+  //   let size = Int(data[1])
 
-    guard size > 0 else {
-      return nil
-    }
+  //   guard size > 0 else {
+  //     return nil
+  //   }
 
-    guard type == 0 else {
-      return nil
-    }
+  //   guard type == 0 else {
+  //     return nil
+  //   }
 
-    let start = 4  // Skip the first four bytes
-    let end = 4 + size - 1
+  //   let start = 4  // Skip the first four bytes
+  //   let end = 4 + size - 1
 
-    if end > data.count {
-      return nil
-    }
+  //   if end > data.count {
+  //     return nil
+  //   }
 
-    var subdata = data[start..<end]
-    let nullEnd = subdata.firstIndex(where: { $0 == 0 }) ?? subdata.endIndex
-    subdata = subdata[start..<nullEnd]  // Remove the null bytes
+  //   var subdata = data[start..<end]
+  //   let nullEnd = subdata.firstIndex(where: { $0 == 0 }) ?? subdata.endIndex
+  //   subdata = subdata[start..<nullEnd]  // Remove the null bytes
 
-    return String(data: subdata, encoding: .ascii)
-  }
+  //   return String(data: subdata, encoding: .ascii)
+  // }
 
-  func nonStandardDecode(data: Data) -> String {
-    return ""
-  }
+  // func nonStandardDecode(data: Data) -> String {
+  //   return ""
+  // }
 }
 
 public struct Extractor {
