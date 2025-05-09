@@ -181,19 +181,6 @@ public struct Extractor {
       }
     }
 
-    metadata["description"] = "Test description"
-    metadata["title"] = "Test title"
-
-    // let item = AVMutableMetadataItem()
-    // // item.dataType = kCMMetadataBaseDataType_RawData as String
-    // item.identifier = .iTunesMetadataDescription
-    // item.value = Data("Some value".utf8) as NSData
-
-    // let model = "Creator"
-    // let modelItem = AVMutableMetadataItem()
-    // item.identifier = .iTunesMetadataCredits
-    // modelItem.value = model as (NSCopying & NSObjectProtocol)
-
     let items: [AVMetadataItem] = metadata.compactMap { (key: String, value: String) in
       if let template = self.knownFormats[key] {
         let item = AVMutableMetadataItem()

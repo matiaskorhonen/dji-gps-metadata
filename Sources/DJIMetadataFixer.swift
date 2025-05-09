@@ -183,31 +183,12 @@ extension DJIMetadataFixer {
 
         print("Wrote to \(outputURL.path)")
 
-        // let exporter = Exporter()
-
-        // let exportURL = await exporter.export(
-        //   avAsset: asset,
-        //   metadata: metadata,
-        //   toFileType: .mp4,
-        //   atURL: tempItemURL)
-
-        // if exportURL == nil {
-        //   print("Failed to export \(url.path)")
-        // } else {
-        //   if overwrite {
-        //     // Replace the existing item if it exists
-        //     try FileManager.default.replaceItem(
-        //       at: outputURL, withItemAt: exportURL!, backupItemName: "_\(filename).backup",
-        //       options: .usingNewMetadataOnly,
-        //       resultingItemURL: nil)
-        //   } else {
-        //     // Safely move the item to the output directory, throws an error if the
-        //     // item already exists
-        //     try FileManager.default.moveItem(at: exportURL!, to: outputURL)
-        //   }
-
-        //   print("Exported \(url.lastPathComponent) to \(outputURL.path)")
-        // }
+        // Clean up the temporary directory
+        do {
+          try FileManager.default.removeItem(at: temporaryDirectoryURL)
+        } catch {
+          print("Failed to remove temporary directory: \(error)")
+        }
       }
     }
   }
