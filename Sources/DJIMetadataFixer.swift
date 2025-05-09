@@ -109,14 +109,14 @@ extension DJIMetadataFixer {
 
       for url in options.source {
         let basename = NSString(string: url.lastPathComponent).deletingPathExtension
-        let filename = "\(basename).mp4"
+        let filename = "\(basename)-fixed.mov"
         let outputURL = URL(fileURLWithPath: outputDirectoryPath)
           .appendingPathComponent(filename)
 
         let temporaryDirectoryURL = try FileManager.default.url(
           for: .itemReplacementDirectory,
           in: .userDomainMask,
-          appropriateFor: outputURL,
+          appropriateFor: url,
           create: true
         )
         let uuid = UUID().uuidString
@@ -125,9 +125,16 @@ extension DJIMetadataFixer {
           .appendingPathComponent(uuid)
           .appendingPathExtension(for: .quickTimeMovie)
 
-        // try FileManager.default.copyItem(at: url, to: tempItemURL)
+        print("Temp item: \(tempItemURL.path)")
+
+        let converter = Converter()
+        try await converter.convert(
+          input: url,
+          output: tempItemURL
+        )
 
         let asset = AVAsset(url: url)
+        let mutableAsset = AVMutableMovie(url: tempItemURL)
 
         let metadata = try await Extractor.extractItems(
           from: asset,
@@ -145,22 +152,15 @@ extension DJIMetadataFixer {
           }
         }
 
-        print("availableMetadataFormats \(asset.availableMetadataFormats)")
-
-        print("Temp item: \(tempItemURL.path)")
-
-        // try asset.writeHeader(
-        //   to: tempItemURL,
-        //   fileType: .mp4,
-        //   options: .addMovieHeaderToDestination
-        // )
+        print("Metadata: \(metadata)")
 
         await AVAssetExportSession.compatibility(
-          ofExportPreset: AVAssetExportPresetPassthrough, with: asset, outputFileType: .mov)
+          ofExportPreset: AVAssetExportPresetPassthrough, with: mutableAsset, outputFileType: .mov)
 
         let exportSession = AVAssetExportSession(
-          asset: asset,
-          presetName: AVAssetExportPresetPassthrough)!
+          asset: mutableAsset,
+          presetName: AVAssetExportPresetPassthrough
+        )!
 
         exportSession.shouldOptimizeForNetworkUse = true
 
@@ -171,11 +171,17 @@ extension DJIMetadataFixer {
         exportSession.shouldOptimizeForNetworkUse = true
         exportSession.metadata = metadata
         exportSession.outputFileType = .mov
-        exportSession.outputURL = tempItemURL
+        exportSession.outputURL = outputURL
+
+        if overwrite {
+          var resultingURL: NSURL?
+          try FileManager.default.trashItem(at: outputURL, resultingItemURL: &resultingURL)
+          print("Moved existing file to Trash (\(resultingURL?.path ?? "—"))")
+        }
 
         await exportSession.export()
 
-        print("Wrote to \(tempItemURL.path)")
+        print("Wrote to \(outputURL.path)")
 
         // let exporter = Exporter()
 
