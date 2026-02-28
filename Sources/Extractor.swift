@@ -94,19 +94,53 @@ public struct Extractor {
       identifier: .commonIdentifierDescription,
       dataType: kCMMetadataBaseDataType_UTF8 as String
     ),
-    // Other fields that can be read but don't have a known AVMetadataIdentifier:
-    //
-    // uiso/©xsp → Speed X
-    // uiso/©ysp → Speed Y
-    // uiso/©zsp → Speed Z
-    // uiso/©fpt → Pitch
-    // uiso/©fyw → Yaw
-    // uiso/©frl → Roll
-    // uiso/©gpt → Camera Pitch
-    // uiso/©gyw → Camera Yaw
-    // uiso/©grl → Camera Roll
-    // uiso/©csn → Serial number
-    // uiso/©mdl → Model number
+    // Serial number (closest native mapping)
+    "uiso/©csn": MetadataTemplate(
+      identifier: .quickTimeMetadataCameraIdentifier,
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    // Model number
+    "uiso/©mdl": MetadataTemplate(
+      identifier: .commonIdentifierModel,
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    // DJI telemetry fields persisted as custom mdta keys
+    "uiso/©xsp": MetadataTemplate(
+      identifier: AVMetadataIdentifier(rawValue: "mdta/com.dji.speed.x"),
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    "uiso/©ysp": MetadataTemplate(
+      identifier: AVMetadataIdentifier(rawValue: "mdta/com.dji.speed.y"),
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    "uiso/©zsp": MetadataTemplate(
+      identifier: AVMetadataIdentifier(rawValue: "mdta/com.dji.speed.z"),
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    "uiso/©fpt": MetadataTemplate(
+      identifier: AVMetadataIdentifier(rawValue: "mdta/com.dji.flight.pitch"),
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    "uiso/©fyw": MetadataTemplate(
+      identifier: AVMetadataIdentifier(rawValue: "mdta/com.dji.flight.yaw"),
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    "uiso/©frl": MetadataTemplate(
+      identifier: AVMetadataIdentifier(rawValue: "mdta/com.dji.flight.roll"),
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    "uiso/©gpt": MetadataTemplate(
+      identifier: AVMetadataIdentifier(rawValue: "mdta/com.dji.gimbal.pitch"),
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    "uiso/©gyw": MetadataTemplate(
+      identifier: AVMetadataIdentifier(rawValue: "mdta/com.dji.gimbal.yaw"),
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
+    "uiso/©grl": MetadataTemplate(
+      identifier: AVMetadataIdentifier(rawValue: "mdta/com.dji.gimbal.roll"),
+      dataType: kCMMetadataBaseDataType_UTF8 as String
+    ),
   ]
 
   public static func extractMetadata(from asset: AVAsset)
