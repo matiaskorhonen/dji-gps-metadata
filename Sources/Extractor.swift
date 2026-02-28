@@ -1,4 +1,5 @@
 import AVFoundation
+import Bamf
 
 struct MetadataTemplate {
   var identifier: AVMetadataIdentifier
@@ -111,6 +112,39 @@ public struct Extractor {
   public static func extractMetadata(from asset: AVAsset)
     async throws -> [String: String]
   {
+    var parsedMetadata = try extractUserDataMetadata(from: asset)
+    let avMetadata = try await extractAVMetadata(from: asset)
+
+    for (key, value) in avMetadata where !key.hasPrefix("uiso/") && parsedMetadata[key] == nil {
+      parsedMetadata[key] = value
+    }
+
+    return parsedMetadata
+  }
+
+  private static func extractUserDataMetadata(from asset: AVAsset) throws -> [String: String] {
+    guard let urlAsset = asset as? AVURLAsset else {
+      return [:]
+    }
+
+    let bamf = try Bamf(urlAsset.url)
+    var parsedMetadata: [String: String] = [:]
+
+    if let udta = bamf.findAtom(ofType: Atom.UDTA.self) {
+      for userDataAtom in udta.userData where userDataAtom.type != "meta" {
+        let identifier = "uiso/\(userDataAtom.type)"
+        if let value = decodeUserDataValue(from: userDataAtom.data) {
+          parsedMetadata[identifier] = value
+        }
+      }
+    }
+
+    return parsedMetadata
+  }
+
+  private static func extractAVMetadata(from asset: AVAsset)
+    async throws -> [String: String]
+  {
     var parsedMetadata: [String: String] = [:]
     let metadataFormats = try await asset.load(.availableMetadataFormats)
 
@@ -160,6 +194,99 @@ public struct Extractor {
     }
 
     return parsedMetadata
+  }
+
+  private static func decodeUserDataValue(from data: Data) -> String? {
+    guard !data.isEmpty else {
+      return nil
+    }
+
+    var candidates: [String] = []
+
+    if data.count >= 2 {
+      let type = Int(data[data.startIndex])
+      let size = Int(data[data.startIndex + 1])
+
+      if type == 0 && size > 1 {
+        let payloadStart = data.startIndex + 4
+        let payloadEnd = min(payloadStart + size, data.endIndex)
+
+        if payloadStart < payloadEnd {
+          let payload = data[payloadStart..<payloadEnd]
+          if let decoded = decodeNullTerminatedString(from: payload) {
+            candidates.append(decoded)
+          }
+        }
+      }
+    }
+
+    if data.count > 4 {
+      let payload = data[(data.startIndex + 4)..<data.endIndex]
+      if let decoded = decodeNullTerminatedString(from: payload) {
+        candidates.append(decoded)
+      }
+    }
+
+    if let nullIndex = data.firstIndex(of: 0), nullIndex > data.startIndex {
+      let payload = data[data.startIndex..<nullIndex]
+      if let decoded = String(data: payload, encoding: .utf8) {
+        candidates.append(decoded)
+      }
+    }
+
+    if let decoded = String(data: data, encoding: .utf8) {
+      candidates.append(decoded)
+    }
+
+    if let printableTail = longestPrintableASCIIRun(in: data) {
+      candidates.append(printableTail)
+    }
+
+    return
+      candidates
+      .map({ $0.trimmingCharacters(in: .controlCharacters) })
+      .filter({ !$0.isEmpty })
+      .max(by: { $0.count < $1.count })
+  }
+
+  private static func decodeNullTerminatedString(from data: Data.SubSequence) -> String? {
+    guard !data.isEmpty else {
+      return nil
+    }
+
+    let end = data.firstIndex(of: 0) ?? data.endIndex
+    let payload = data[data.startIndex..<end]
+    guard !payload.isEmpty else {
+      return nil
+    }
+
+    return String(data: payload, encoding: .utf8)
+  }
+
+  private static func longestPrintableASCIIRun(in data: Data) -> String? {
+    var best: [UInt8] = []
+    var current: [UInt8] = []
+
+    for byte in data {
+      if (32...126).contains(byte) {
+        current.append(byte)
+      } else {
+        if current.count > best.count {
+          best = current
+        }
+        current.removeAll(keepingCapacity: true)
+      }
+    }
+
+    if current.count > best.count {
+      best = current
+    }
+
+    guard !best.isEmpty else {
+      return nil
+    }
+
+    return String(decoding: best, as: UTF8.self)
   }
 
   public static func extractItems(from asset: AVAsset, make: String?, model: String?) async throws

@@ -1,5 +1,6 @@
 import AVFoundation
 import ArgumentParser
+import Bamf
 import Foundation
 
 @main
@@ -230,16 +231,19 @@ extension DJIMetadataFixer {
 
     mutating func run() async throws {
       for url in options.source {
-        let mp4File = MP4File(url)
-        for atom in mp4File.children {
-          print(atom)
-          if atom.children.count > 0 {
-            print("  Children:")
-            for child in atom.children {
-              print("  \(child)")
-            }
-          }
+        let bamf = try Bamf(url)
+        for atom in bamf.children {
+          printAtom(atom)
         }
+      }
+    }
+
+    private func printAtom(_ atom: Atom, level: Int = 0) {
+      let indent = String(repeating: "  ", count: level)
+      print("\(indent)\(atom)")
+
+      for child in atom.displayChildren {
+        printAtom(child, level: level + 1)
       }
     }
   }
