@@ -1,11 +1,47 @@
 import Foundation
 
+struct ProcessResult {
+  let status: Int32
+  let output: String
+}
+
+protocol ProcessRunning {
+  func run(executableURL: URL, arguments: [String]) throws -> ProcessResult
+}
+
+struct SystemProcessRunner: ProcessRunning {
+  func run(executableURL: URL, arguments: [String]) throws -> ProcessResult {
+    let process = Process()
+    process.qualityOfService = .userInitiated
+    let pipe = Pipe()
+    process.standardOutput = pipe
+    process.standardError = pipe
+    process.executableURL = executableURL
+    process.arguments = arguments
+
+    try process.run()
+    process.waitUntilExit()
+
+    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+    let output = String(data: data, encoding: .utf8) ?? ""
+
+    return ProcessResult(status: process.terminationStatus, output: output)
+  }
+}
+
+protocol VideoConverting {
+  func convert(input: URL, output: URL) async throws
+}
+
 /// Converts input video files to QuickTime MOV while preserving streams and metadata tags.
-class Converter {
+class Converter: VideoConverting {
+  private let processRunner: ProcessRunning
+
   // MARK: - Initialization
 
   /// Creates a new converter instance.
-  public init() {
+  public init(processRunner: ProcessRunning = SystemProcessRunner()) {
+    self.processRunner = processRunner
   }
 
   /// Converts a video file to MOV format with ffmpeg.
@@ -18,13 +54,6 @@ class Converter {
     input: URL,
     output: URL
   ) async throws {
-    let process = Process()
-    process.qualityOfService = .userInitiated
-    let pipe = Pipe()
-    process.standardOutput = pipe
-    process.standardError = pipe
-    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-
     let command = [
       "ffmpeg",
       "-i", input.path,
@@ -43,29 +72,23 @@ class Converter {
 
     print("Command: \(command.joined(separator: " "))")
 
-    process.arguments = command
+    let result = try processRunner.run(
+      executableURL: URL(fileURLWithPath: "/usr/bin/env"),
+      arguments: command
+    )
 
-    try process.run()
-
-    process.waitUntilExit()
-
-    let status = process.terminationStatus
-
-    let data = pipe.fileHandleForReading.readDataToEndOfFile()
-    let output = String(data: data, encoding: .utf8) ?? ""
-
-    if status == 0 {
+    if result.status == 0 {
       print("Conversion succeeded.")
     } else {
-      print("Conversion failed with status: \(status)")
-      print("Error output: \(output)")
+      print("Conversion failed with status: \(result.status)")
+      print("Error output: \(result.output)")
       throw NSError(
         domain: "fi.matiaskorhonen.dji-gps-metadata",
-        code: Int(status),
-        userInfo: [NSLocalizedDescriptionKey: "Conversion failed with status: \(status)"]
+        code: Int(result.status),
+        userInfo: [NSLocalizedDescriptionKey: "Conversion failed with status: \(result.status)"]
       )
     }
 
-    print(output)
+    print(result.output)
   }
 }

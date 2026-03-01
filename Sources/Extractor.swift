@@ -1,5 +1,19 @@
 import AVFoundation
 import Bamf
+import DJIMetadataCore
+
+protocol MetadataItemExtracting {
+  func extractItems(from asset: AVAsset, make: String?, model: String?) async throws
+    -> [AVMetadataItem]
+}
+
+struct DefaultMetadataItemExtractor: MetadataItemExtracting {
+  func extractItems(from asset: AVAsset, make: String?, model: String?) async throws
+    -> [AVMetadataItem]
+  {
+    try await Extractor.extractItems(from: asset, make: make, model: model)
+  }
+}
 
 /// Maps parsed metadata keys to AVFoundation metadata identifiers and data types.
 struct MetadataTemplate {

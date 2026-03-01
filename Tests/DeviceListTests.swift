@@ -1,5 +1,5 @@
 import AVFoundation
-import DJIMetadataFixer
+import DJIMetadataCore
 import Testing
 
 @Suite struct DeviceListTests {

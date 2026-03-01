@@ -1,6 +1,7 @@
 import AVFoundation
 import ArgumentParser
 import Bamf
+import DJIMetadataCore
 import Foundation
 
 /// Command-line entry point for fixing DJI video metadata.
@@ -122,39 +123,21 @@ extension DJIMetadataFixer {
 
     /// Runs metadata extraction and re-export for each source file.
     mutating func run() async throws {
-      let outputDirectoryPath = destination?.path ?? FileManager.default.currentDirectoryPath
+      let pipeline = MetadataFixPipeline()
 
       for url in options.source {
-        let basename = NSString(string: url.lastPathComponent).deletingPathExtension
-        let filename = "\(basename)-fixed.mov"
-        let outputURL = URL(fileURLWithPath: outputDirectoryPath)
-          .appendingPathComponent(filename)
-
-        let temporaryDirectoryURL = try FileManager.default.url(
-          for: .itemReplacementDirectory,
-          in: .userDomainMask,
-          appropriateFor: url,
-          create: true
-        )
-        let uuid = UUID().uuidString
-        let tempItemURL =
-          temporaryDirectoryURL
-          .appendingPathComponent(uuid)
-          .appendingPathExtension(for: .quickTimeMovie)
+        let outputURL = pipeline.outputURL(for: url, destination: destination)
+        let temporaryResources = try pipeline.createTemporaryMovieURL(for: url)
+        let tempItemURL = temporaryResources.item
 
         print("Temp item: \(tempItemURL.path)")
 
-        let converter = Converter()
-        try await converter.convert(
-          input: url,
-          output: tempItemURL
-        )
+        try await pipeline.convertToTemporaryMovie(source: url, temporaryItemURL: tempItemURL)
 
-        let asset = AVAsset(url: url)
         let mutableAsset = AVMutableMovie(url: tempItemURL)
 
-        let metadata = try await Extractor.extractItems(
-          from: asset,
+        let metadata = try await pipeline.extractMetadataItems(
+          from: url,
           make: make,
           model: model
         )
@@ -205,13 +188,7 @@ extension DJIMetadataFixer {
         }
 
         print("Wrote to \(outputURL.path)")
-
-        // Remove the temporary replacement directory created for ffmpeg output.
-        do {
-          try FileManager.default.removeItem(at: temporaryDirectoryURL)
-        } catch {
-          print("Failed to remove temporary directory: \(error)")
-        }
+        pipeline.removeTemporaryDirectory(temporaryResources.directory)
       }
     }
   }

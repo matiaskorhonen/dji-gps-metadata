@@ -1,5 +1,5 @@
 import CoreLocation
-import DJIMetadataFixer
+import DJIMetadataCore
 import Testing
 
 @Suite struct ISO6709Tests {
