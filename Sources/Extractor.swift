@@ -123,6 +123,34 @@ public struct Extractor {
       parsedMetadata[key] = value
     }
 
+    if parsedMetadata["createDate"] == nil {
+      let creationDateItem = try await asset.load(.creationDate)
+      if let creationDateItem {
+        if let dateValue = creationDateItem.dateValue {
+          parsedMetadata["createDate"] = formatQuickTimeDate(dateValue)
+        } else if let stringValue = creationDateItem.stringValue,
+          !stringValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        {
+          parsedMetadata["createDate"] = stringValue
+        }
+      }
+    }
+
+    if parsedMetadata["createDate"] == nil {
+      parsedMetadata["createDate"] =
+        parsedMetadata["mdta/com.apple.quicktime.creationdate"]
+        ?? parsedMetadata["com.apple.quicktime.creationdate"]
+        ?? parsedMetadata["creationDate"]
+        ?? parsedMetadata["creation_time"]
+    }
+
+    if parsedMetadata["comment"] == nil {
+      parsedMetadata["comment"] =
+        parsedMetadata["mdta/com.apple.quicktime.comment"]
+        ?? parsedMetadata["com.apple.quicktime.comment"]
+        ?? parsedMetadata["comment"]
+    }
+
     return parsedMetadata
   }
 
@@ -135,7 +163,16 @@ public struct Extractor {
     var parsedMetadata: [String: String] = [:]
 
     if let udta = bamf.findAtom(ofType: Atom.UDTA.self) {
-      for userDataAtom in udta.userData where userDataAtom.type != "meta" {
+      for userDataAtom in udta.userData {
+        if userDataAtom.type == "meta" {
+          if parsedMetadata["comment"] == nil,
+            let comment = extractComment(from: userDataAtom)
+          {
+            parsedMetadata["comment"] = comment
+          }
+          continue
+        }
+
         let identifier = "uiso/\(userDataAtom.type)"
         if let value = decodeUserDataValue(from: userDataAtom.data) {
           parsedMetadata[identifier] = value
@@ -158,46 +195,72 @@ public struct Extractor {
       // print("The available metadata format is \(format)")
 
       for item in metadata {
-        if let data = item.dataValue,
-          let identifier = item.identifier?.rawValue.replacingOccurrences(of: "%A9", with: "©")
-        {
+        let value = metadataStringValue(from: item)
+        guard let value, !value.isEmpty else {
+          continue
+        }
 
-          let type = Int(data[0])
-          let size = Int(data[1])
+        if let identifier = item.identifier?.rawValue.replacingOccurrences(of: "%A9", with: "©") {
+          parsedMetadata[identifier] = value
+        }
 
-          guard size > 1 else {
-            // print("🚫 \(identifier) → No data")
-            continue
-          }
+        if let key = item.key as? String, !key.isEmpty {
+          parsedMetadata[key] = value
+        }
 
-          if type == 0 {
-            let start = 4  // Skip the first four bytes
-            let end = 4 + size
-
-            var subdata = data[start..<end]
-            let nullEnd = subdata.firstIndex(where: { $0 == 0 }) ?? subdata.endIndex
-            subdata = subdata[subdata.startIndex..<nullEnd]  // Remove the null bytes
-
-            // let hex = subdata.reduce("") { $0 + String(format: "%02x ", $1) }
-            //   .trimmingCharacters(in: .whitespacesAndNewlines)
-            let string = String(data: subdata, encoding: .utf8)
-
-            parsedMetadata[identifier] = string
-
-            // print("✅ \(identifier) → \(string ?? "—") \(size)|\(subdata.count) bytes [\(hex)]")
-          } else {
-            let start = 0
-            let end = data.firstIndex(where: { $0 == 0 }) ?? data.endIndex
-            let subdata = data[start..<end]  // Read until the first null or the end
-            let string = String(data: subdata, encoding: .utf8)
-
-            parsedMetadata[identifier] = string
-          }
+        if let commonKey = item.commonKey?.rawValue, !commonKey.isEmpty {
+          parsedMetadata[commonKey] = value
         }
       }
     }
 
     return parsedMetadata
+  }
+
+  private static func metadataStringValue(from item: AVMetadataItem) -> String? {
+    if let stringValue = item.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !stringValue.isEmpty
+    {
+      return stringValue
+    }
+
+    if let dateValue = item.dateValue {
+      return formatQuickTimeDate(dateValue)
+    }
+
+    guard let data = item.dataValue, data.count >= 2 else {
+      return nil
+    }
+
+    let type = Int(data[data.startIndex])
+    let size = Int(data[data.startIndex + 1])
+
+    guard size > 1 else {
+      return nil
+    }
+
+    if type == 0 {
+      let start = data.startIndex + 4
+      let end = min(start + size, data.endIndex)
+      guard start < end else {
+        return nil
+      }
+
+      let subdata = data[start..<end]
+      let nullEnd = subdata.firstIndex(where: { $0 == 0 }) ?? subdata.endIndex
+      return String(data: subdata[subdata.startIndex..<nullEnd], encoding: .utf8)
+    }
+
+    let end = data.firstIndex(where: { $0 == 0 }) ?? data.endIndex
+    return String(data: data[data.startIndex..<end], encoding: .utf8)
+  }
+
+  private static func formatQuickTimeDate(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+    formatter.timeZone = TimeZone.current
+    return formatter.string(from: date)
   }
 
   private static func decodeUserDataValue(from data: Data) -> String? {
@@ -265,6 +328,24 @@ public struct Extractor {
     }
 
     return String(data: payload, encoding: .utf8)
+  }
+
+  private static func extractComment(from atom: Atom) -> String? {
+    if atom.type == "©cmt" {
+      for child in atom.displayChildren where child.type == "data" {
+        if let comment = decodeUserDataValue(from: child.data), !comment.isEmpty {
+          return comment
+        }
+      }
+    }
+
+    for child in atom.displayChildren {
+      if let comment = extractComment(from: child) {
+        return comment
+      }
+    }
+
+    return nil
   }
 
   private static func longestPrintableASCIIRun(in data: Data) -> String? {
@@ -335,6 +416,30 @@ public struct Extractor {
         quickTimeUserDataLocation.dataType = kCMMetadataBaseDataType_UTF8 as String
         items.append(quickTimeUserDataLocation.copy() as! AVMetadataItem)
 
+        continue
+      }
+
+      if key == "createDate" {
+        let item = AVMutableMetadataItem()
+        item.identifier = .quickTimeMetadataCreationDate
+        item.value = normalizeCreationDate(value) as (NSCopying & NSObjectProtocol)
+        item.dataType = kCMMetadataBaseDataType_UTF8 as String
+        items.append(item.copy() as! AVMetadataItem)
+        continue
+      }
+
+      if key == "comment" {
+        let quickTimeMetadataComment = AVMutableMetadataItem()
+        quickTimeMetadataComment.identifier = .quickTimeMetadataComment
+        quickTimeMetadataComment.value = value as (NSCopying & NSObjectProtocol)
+        quickTimeMetadataComment.dataType = kCMMetadataBaseDataType_UTF8 as String
+        items.append(quickTimeMetadataComment.copy() as! AVMetadataItem)
+
+        let quickTimeUserDataComment = AVMutableMetadataItem()
+        quickTimeUserDataComment.identifier = .quickTimeUserDataComment
+        quickTimeUserDataComment.value = value as (NSCopying & NSObjectProtocol)
+        quickTimeUserDataComment.dataType = kCMMetadataBaseDataType_UTF8 as String
+        items.append(quickTimeUserDataComment.copy() as! AVMetadataItem)
         continue
       }
 
@@ -427,5 +532,47 @@ public struct Extractor {
     }
 
     return "\(sign)\(paddedIntegerPart)"
+  }
+
+  private static func normalizeCreationDate(_ value: String) -> String {
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if trimmed.isEmpty {
+      return trimmed
+    }
+
+    let dateFormatters: [DateFormatter] = {
+      let quickTime = DateFormatter()
+      quickTime.locale = Locale(identifier: "en_US_POSIX")
+      quickTime.dateFormat = "yyyy:MM:dd HH:mm:ss"
+      quickTime.timeZone = TimeZone.current
+
+      let ffmpeg = DateFormatter()
+      ffmpeg.locale = Locale(identifier: "en_US_POSIX")
+      ffmpeg.dateFormat = "yyyy-MM-dd HH:mm:ss"
+      ffmpeg.timeZone = TimeZone.current
+
+      return [quickTime, ffmpeg]
+    }()
+
+    let isoParsers: [ISO8601DateFormatter] = {
+      let withFractional = ISO8601DateFormatter()
+      withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+      let plain = ISO8601DateFormatter()
+      plain.formatOptions = [.withInternetDateTime]
+
+      return [withFractional, plain]
+    }()
+
+    if let date = dateFormatters.lazy.compactMap({ $0.date(from: trimmed) }).first {
+      return formatQuickTimeDate(date)
+    }
+
+    if let date = isoParsers.lazy.compactMap({ $0.date(from: trimmed) }).first {
+      return formatQuickTimeDate(date)
+    }
+
+    return trimmed
   }
 }
