@@ -7,6 +7,42 @@ struct MetadataTemplate {
 }
 
 public struct Extractor {
+  private static let quickTimeDateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+    formatter.timeZone = TimeZone.current
+    return formatter
+  }()
+
+  private static let sourceQuickTimeDateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+    formatter.timeZone = TimeZone.current
+    return formatter
+  }()
+
+  private static let sourceFFmpegDateFormatter: DateFormatter = {
+    let formatter = DateFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+    formatter.timeZone = TimeZone.current
+    return formatter
+  }()
+
+  private static let iso8601WithFractionalSeconds: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter
+  }()
+
+  private static let iso8601Standard: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime]
+    return formatter
+  }()
+
   // ExifTool output and the corresponding uiso identifiers:
   //
   // With preamble:
@@ -256,11 +292,7 @@ public struct Extractor {
   }
 
   private static func formatQuickTimeDate(_ date: Date) -> String {
-    let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "en_US_POSIX")
-    formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
-    formatter.timeZone = TimeZone.current
-    return formatter.string(from: date)
+    quickTimeDateFormatter.string(from: date)
   }
 
   private static func decodeUserDataValue(from data: Data) -> String? {
@@ -400,59 +432,59 @@ public struct Extractor {
         continue
       }
 
-      if key == "uiso/©xyz" {
+      switch key {
+      case "uiso/©xyz":
         let location = normalizeISO6709(value)
 
-        let quickTimeMetadataLocation = AVMutableMetadataItem()
-        quickTimeMetadataLocation.identifier = .quickTimeMetadataLocationISO6709
-        quickTimeMetadataLocation.value = location as (NSCopying & NSObjectProtocol)
-        quickTimeMetadataLocation.dataType =
-          kCMMetadataDataType_QuickTimeMetadataLocation_ISO6709 as String
-        items.append(quickTimeMetadataLocation.copy() as! AVMetadataItem)
+        items.append(
+          makeMetadataItem(
+            identifier: .quickTimeMetadataLocationISO6709,
+            value: location,
+            dataType: kCMMetadataDataType_QuickTimeMetadataLocation_ISO6709 as String
+          )
+        )
+        items.append(
+          makeMetadataItem(
+            identifier: .quickTimeUserDataLocationISO6709,
+            value: location,
+            dataType: kCMMetadataBaseDataType_UTF8 as String
+          )
+        )
 
-        let quickTimeUserDataLocation = AVMutableMetadataItem()
-        quickTimeUserDataLocation.identifier = .quickTimeUserDataLocationISO6709
-        quickTimeUserDataLocation.value = location as (NSCopying & NSObjectProtocol)
-        quickTimeUserDataLocation.dataType = kCMMetadataBaseDataType_UTF8 as String
-        items.append(quickTimeUserDataLocation.copy() as! AVMetadataItem)
+      case "createDate":
+        items.append(
+          makeMetadataItem(
+            identifier: .quickTimeMetadataCreationDate,
+            value: normalizeCreationDate(value),
+            dataType: kCMMetadataBaseDataType_UTF8 as String
+          )
+        )
 
-        continue
+      case "comment":
+        items.append(
+          makeMetadataItem(
+            identifier: .quickTimeMetadataComment,
+            value: value,
+            dataType: kCMMetadataBaseDataType_UTF8 as String
+          )
+        )
+        items.append(
+          makeMetadataItem(
+            identifier: .quickTimeUserDataComment,
+            value: value,
+            dataType: kCMMetadataBaseDataType_UTF8 as String
+          )
+        )
+
+      default:
+        items.append(
+          makeMetadataItem(
+            identifier: template.identifier,
+            value: value,
+            dataType: template.dataType
+          )
+        )
       }
-
-      if key == "createDate" {
-        let item = AVMutableMetadataItem()
-        item.identifier = .quickTimeMetadataCreationDate
-        item.value = normalizeCreationDate(value) as (NSCopying & NSObjectProtocol)
-        item.dataType = kCMMetadataBaseDataType_UTF8 as String
-        items.append(item.copy() as! AVMetadataItem)
-        continue
-      }
-
-      if key == "comment" {
-        let quickTimeMetadataComment = AVMutableMetadataItem()
-        quickTimeMetadataComment.identifier = .quickTimeMetadataComment
-        quickTimeMetadataComment.value = value as (NSCopying & NSObjectProtocol)
-        quickTimeMetadataComment.dataType = kCMMetadataBaseDataType_UTF8 as String
-        items.append(quickTimeMetadataComment.copy() as! AVMetadataItem)
-
-        let quickTimeUserDataComment = AVMutableMetadataItem()
-        quickTimeUserDataComment.identifier = .quickTimeUserDataComment
-        quickTimeUserDataComment.value = value as (NSCopying & NSObjectProtocol)
-        quickTimeUserDataComment.dataType = kCMMetadataBaseDataType_UTF8 as String
-        items.append(quickTimeUserDataComment.copy() as! AVMetadataItem)
-        continue
-      }
-
-      let item = AVMutableMetadataItem()
-      item.identifier = template.identifier
-      item.value = value as (NSCopying & NSObjectProtocol)
-      item.dataType = template.dataType
-      item.locale = Locale.current
-      item.extraAttributes = nil
-      item.extendedLanguageTag = "und"
-      item.time = CMTime.zero
-      item.duration = CMTime.zero
-      items.append(item.copy() as! AVMetadataItem)
     }
 
     // items.append(item)
@@ -464,74 +496,29 @@ public struct Extractor {
     return items
   }
 
-  private static func normalizeISO6709(_ value: String) -> String {
-    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+  private static func makeMetadataItem(
+    identifier: AVMetadataIdentifier,
+    value: String,
+    dataType: String
+  ) -> AVMetadataItem {
+    let item = AVMutableMetadataItem()
+    item.identifier = identifier
+    item.value = value as (NSCopying & NSObjectProtocol)
+    item.dataType = dataType
+    return item.copy() as! AVMetadataItem
+  }
 
-    if trimmed.isEmpty {
+  private static func normalizeISO6709(_ value: String) -> String {
+    if let iso6709 = try? ISO6709(value) {
+      return iso6709.normalizedString
+    }
+
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
       return trimmed
     }
 
-    let raw = trimmed.hasSuffix("/") ? String(trimmed.dropLast()) : trimmed
-
-    let pattern = #"^([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)?$"#
-    guard let regex = try? NSRegularExpression(pattern: pattern) else {
-      return trimmed.hasSuffix("/") ? trimmed : "\(trimmed)/"
-    }
-
-    let nsRaw = raw as NSString
-    let range = NSRange(location: 0, length: nsRaw.length)
-    guard let match = regex.firstMatch(in: raw, options: [], range: range),
-      match.numberOfRanges >= 3
-    else {
-      return trimmed.hasSuffix("/") ? trimmed : "\(trimmed)/"
-    }
-
-    let latitude = nsRaw.substring(with: match.range(at: 1))
-    let longitude = nsRaw.substring(with: match.range(at: 2))
-    let altitude: String? = {
-      let altitudeRange = match.range(at: 3)
-      guard altitudeRange.location != NSNotFound else {
-        return nil
-      }
-      return nsRaw.substring(with: altitudeRange)
-    }()
-
-    let normalizedLatitude = normalizeISO6709Component(latitude, minimumIntegerDigits: 2)
-    let normalizedLongitude = normalizeISO6709Component(longitude, minimumIntegerDigits: 3)
-    let normalizedAltitude =
-      altitude.map({ normalizeISO6709Component($0, minimumIntegerDigits: 2) }) ?? ""
-
-    return "\(normalizedLatitude)\(normalizedLongitude)\(normalizedAltitude)/"
-
-  }
-
-  private static func normalizeISO6709Component(_ component: String, minimumIntegerDigits: Int)
-    -> String
-  {
-    guard component.count >= 2 else {
-      return component
-    }
-
-    let sign = String(component.prefix(1))
-    let rest = String(component.dropFirst())
-    let parts = rest.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
-    let integerPart = String(parts.first ?? "")
-
-    let paddedIntegerPart: String
-    if integerPart.count < minimumIntegerDigits {
-      paddedIntegerPart =
-        String(repeating: "0", count: minimumIntegerDigits - integerPart.count)
-        + integerPart
-    } else {
-      paddedIntegerPart = integerPart
-    }
-
-    if parts.count == 2 {
-      let fractionalPart = String(parts[1])
-      return "\(sign)\(paddedIntegerPart).\(fractionalPart)"
-    }
-
-    return "\(sign)\(paddedIntegerPart)"
+    return trimmed.hasSuffix("/") ? trimmed : "\(trimmed)/"
   }
 
   private static func normalizeCreationDate(_ value: String) -> String {
@@ -541,35 +528,15 @@ public struct Extractor {
       return trimmed
     }
 
-    let dateFormatters: [DateFormatter] = {
-      let quickTime = DateFormatter()
-      quickTime.locale = Locale(identifier: "en_US_POSIX")
-      quickTime.dateFormat = "yyyy:MM:dd HH:mm:ss"
-      quickTime.timeZone = TimeZone.current
-
-      let ffmpeg = DateFormatter()
-      ffmpeg.locale = Locale(identifier: "en_US_POSIX")
-      ffmpeg.dateFormat = "yyyy-MM-dd HH:mm:ss"
-      ffmpeg.timeZone = TimeZone.current
-
-      return [quickTime, ffmpeg]
-    }()
-
-    let isoParsers: [ISO8601DateFormatter] = {
-      let withFractional = ISO8601DateFormatter()
-      withFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-      let plain = ISO8601DateFormatter()
-      plain.formatOptions = [.withInternetDateTime]
-
-      return [withFractional, plain]
-    }()
-
-    if let date = dateFormatters.lazy.compactMap({ $0.date(from: trimmed) }).first {
+    if let date = sourceQuickTimeDateFormatter.date(from: trimmed)
+      ?? sourceFFmpegDateFormatter.date(from: trimmed)
+    {
       return formatQuickTimeDate(date)
     }
 
-    if let date = isoParsers.lazy.compactMap({ $0.date(from: trimmed) }).first {
+    if let date = iso8601WithFractionalSeconds.date(from: trimmed)
+      ?? iso8601Standard.date(from: trimmed)
+    {
       return formatQuickTimeDate(date)
     }
 
