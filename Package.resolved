@@ -1,6 +1,15 @@
 {
-  "originHash" : "89315686d3f995534af2336e341d72ad726dc2dd20a365830ef29bc1b9534660",
+  "originHash" : "47e8047d7d0b569f33ea7c1dbdc11027179d7474e349ea1b683fc62ca64f3cab",
   "pins" : [
+    {
+      "identity" : "bamf",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/matiaskorhonen/bamf.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "17157e90a6774c34f6f3aa155012aa7bd17343be"
+      }
+    },
     {
       "identity" : "swift-argument-parser",
       "kind" : "remoteSourceControl",
