@@ -1,0 +1,24 @@
+{
+  "originHash" : "d866670c42dcd8e6b2f7acd6920905f50b1c9739c100b256bb5ebfa27fec6e44",
+  "pins" : [
+    {
+      "identity" : "bamf",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/matiaskorhonen/bamf.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "17157e90a6774c34f6f3aa155012aa7bd17343be"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser.git",
+      "state" : {
+        "revision" : "0fbc8848e389af3bb55c182bc19ca9d5dc2f255b",
+        "version" : "1.4.0"
+      }
+    }
+  ],
+  "version" : 3
+}
