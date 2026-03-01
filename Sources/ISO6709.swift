@@ -1,27 +1,45 @@
 import CoreLocation
 import Foundation
 
+/// Parses and normalizes ISO 6709 geographic location strings.
 public struct ISO6709 {
+  /// Errors thrown while parsing ISO 6709 coordinate strings.
   public enum Error: Swift.Error, Equatable {
+    /// The input does not match supported ISO 6709 coordinate formats.
     case invalidFormat(String)
+    /// Latitude is outside the valid range of `-90...90`.
     case invalidLatitude(Double)
+    /// Longitude is outside the valid range of `-180...180`.
     case invalidLongitude(Double)
   }
 
+  /// Parsed Core Location value.
   public let location: CLLocation
 
+  /// Creates an ISO 6709 representation by parsing a coordinate string.
+  ///
+  /// - Parameter value: Coordinate string such as `+60.1234+024.5678/`.
+  /// - Throws: ``ISO6709/Error`` when parsing fails or values are invalid.
   public init(_ value: String) throws {
     self.location = try Self.parseLocation(from: value)
   }
 
+  /// Creates an ISO 6709 representation from an existing location.
+  ///
+  /// - Parameter location: Source location.
   public init(location: CLLocation) {
     self.location = location
   }
 
+  /// Returns a normalized ISO 6709 string for the stored location.
   public var normalizedString: String {
     Self.normalizedString(from: location)
   }
 
+  /// Builds a normalized ISO 6709 string from a location.
+  ///
+  /// - Parameter location: Source location.
+  /// - Returns: Normalized ISO 6709 string with trailing `/`.
   public static func normalizedString(from location: CLLocation) -> String {
     let latitude = formatComponent(location.coordinate.latitude, minimumIntegerDigits: 2)
     let longitude = formatComponent(location.coordinate.longitude, minimumIntegerDigits: 3)

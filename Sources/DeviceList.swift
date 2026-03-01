@@ -1,14 +1,24 @@
+/// Represents a known DJI device make and model pair.
 public struct Device: Equatable {
+  /// Device manufacturer name.
   public let make: String
+  /// Device model name.
   public let model: String
 
+  /// Creates a device descriptor.
+  ///
+  /// - Parameters:
+  ///   - make: Device manufacturer.
+  ///   - model: Device model name.
   public init(make: String, model: String) {
     self.make = make
     self.model = model
   }
 }
 
+/// Provides lookup utilities for known DJI camera model identifiers.
 public struct DeviceList {
+  /// Known DJI model identifier mappings to human-readable devices.
   public static let devices = [
     "FC1102": Device(make: "DJI", model: "Spark"),
     "FC220": Device(make: "DJI", model: "Mavic Pro"),
@@ -29,13 +39,19 @@ public struct DeviceList {
     "FC7203": Device(make: "DJI", model: "Mavic Mini"),
     "HG310": Device(make: "DJI", model: "OSMO"),
     "OT110": Device(make: "DJI", model: "Osmo Pocket"),
-    "L1D-20": Device(make: "Hasselblad", model: "L1D-20"),  // Mavic 2 Pro
-    "L2D-20c": Device(make: "Hasselblad", model: "L2D-20c"),  // Mavic 3
+    // Mavic 2 Pro
+    "L1D-20": Device(make: "Hasselblad", model: "L1D-20"),
+    // Mavic 3
+    "L2D-20c": Device(make: "Hasselblad", model: "L2D-20c"),
     "FC7303": Device(make: "DJI", model: "Mini 2"),
     "FC3582": Device(make: "DJI", model: "Mini 3 Pro"),
     "FC8482": Device(make: "DJI", model: "Mini 4 Pro"),
   ]
 
+  /// Looks up a known device by DJI model identifier.
+  ///
+  /// - Parameter model: DJI model identifier (for example, `FC3582`).
+  /// - Returns: The mapped device when available, otherwise `nil`.
   public static func lookup(for model: String) -> Device? {
     return devices[model]
   }

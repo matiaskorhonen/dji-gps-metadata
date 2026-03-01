@@ -1,11 +1,19 @@
 import Foundation
 
+/// Converts input video files to QuickTime MOV while preserving streams and metadata tags.
 class Converter {
   // MARK: - Initialization
 
+  /// Creates a new converter instance.
   public init() {
   }
 
+  /// Converts a video file to MOV format with ffmpeg.
+  ///
+  /// - Parameters:
+  ///   - input: Source video URL.
+  ///   - output: Destination MOV URL.
+  /// - Throws: An error when ffmpeg exits with a non-zero status.
   public func convert(
     input: URL,
     output: URL

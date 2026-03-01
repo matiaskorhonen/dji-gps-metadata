@@ -1,11 +1,15 @@
 import AVFoundation
 import Bamf
 
+/// Maps parsed metadata keys to AVFoundation metadata identifiers and data types.
 struct MetadataTemplate {
+  /// AVFoundation metadata identifier for the key.
   var identifier: AVMetadataIdentifier
+  /// CoreMedia metadata data type string.
   var dataType: String
 }
 
+/// Extracts and normalizes DJI metadata from video assets.
 public struct Extractor {
   private static let quickTimeDateFormatter: DateFormatter = {
     let formatter = DateFormatter()
@@ -43,29 +47,16 @@ public struct Extractor {
     return formatter
   }()
 
-  // ExifTool output and the corresponding uiso identifiers:
-  //
-  // With preamble:
-  // [MOV-Movie-UserData] GPS Coordinates → uiso/©xyz
-  // [MOV-Movie-UserData] Speed X → uiso/©xsp
-  // [MOV-Movie-UserData] Speed Y → uiso/©ysp
-  // [MOV-Movie-UserData] Speed Z → uiso/©zsp
-  // [MOV-Movie-UserData] Pitch → uiso/©fpt
-  // [MOV-Movie-UserData] Yaw → uiso/©fyw
-  // [MOV-Movie-UserData] Roll → uiso/©frl
-  // [MOV-Movie-UserData] Camera Pitch → uiso/©gpt
-  // [MOV-Movie-UserData] Camera Yaw → uiso/©gyw
-  // [MOV-Movie-UserData] Camera Roll → uiso/©grl
-  //
-  // Without preamble:
-  // [MOV-Movie-UserData] Model
-  // [MOV-Movie-UserData] Serial number
-  //
-  // Unknown:
-  // [MOV-Movie-MovieHeader] Create Date
-  // [MOV-Movie-MovieHeader] Modify Date
-  // [MOV-Movie-UserData-Meta-ItemList] Comment
-
+  /// Supported source metadata keys mapped to export metadata templates.
+  ///
+  /// ExifTool label mappings observed in DJI files:
+  /// - `[MOV-Movie-UserData] GPS Coordinates` → `uiso/©xyz`
+  /// - `[MOV-Movie-UserData] Speed X/Y/Z` → `uiso/©xsp`, `uiso/©ysp`, `uiso/©zsp`
+  /// - `[MOV-Movie-UserData] Pitch/Yaw/Roll` → `uiso/©fpt`, `uiso/©fyw`, `uiso/©frl`
+  /// - `[MOV-Movie-UserData] Camera Pitch/Yaw/Roll` → `uiso/©gpt`, `uiso/©gyw`, `uiso/©grl`
+  ///
+  /// Unmapped labels such as movie header create/modify date and meta-item comments are
+  /// handled through AVFoundation metadata fallbacks in `extractMetadata(from:)`.
   static let knownFormats: [String: MetadataTemplate] = [
     // GPS Coordinates
     "uiso/©xyz": MetadataTemplate(
@@ -144,6 +135,14 @@ public struct Extractor {
     ),
   ]
 
+  /// Extracts metadata values from a source asset.
+  ///
+  /// Merges user data atoms, AVFoundation metadata tracks, and creation/comment fallbacks
+  /// into a normalized key-value dictionary.
+  ///
+  /// - Parameter asset: Source AV asset.
+  /// - Returns: Dictionary of normalized metadata values.
+  /// - Throws: Any errors encountered while reading metadata or source atoms.
   public static func extractMetadata(from asset: AVAsset)
     async throws -> [String: String]
   {
@@ -222,8 +221,6 @@ public struct Extractor {
 
     for format in metadataFormats {
       let metadata = try await asset.loadMetadata(for: format)
-
-      // print("The available metadata format is \(format)")
 
       for item in metadata {
         let value = metadataStringValue(from: item)
@@ -401,6 +398,14 @@ public struct Extractor {
     return String(decoding: best, as: UTF8.self)
   }
 
+  /// Builds AV metadata items ready to be written into an exported file.
+  ///
+  /// - Parameters:
+  ///   - asset: Source AV asset.
+  ///   - make: Optional make override.
+  ///   - model: Optional model override.
+  /// - Returns: Metadata items for supported output keys.
+  /// - Throws: Any errors encountered while parsing metadata from the source asset.
   public static func extractItems(from asset: AVAsset, make: String?, model: String?) async throws
     -> [AVMetadataItem]
   {
