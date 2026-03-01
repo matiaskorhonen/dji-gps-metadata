@@ -2,27 +2,28 @@ name: Swift
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
-
     runs-on: macos-latest
 
     steps:
-    - uses: swift-actions/setup-swift@v2.0.0
-    - uses: actions/checkout@v4
-      with:
-        lfs: true
-    - uses: actions/cache@v4
-      with:
-        path: .build
-        key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-spm-
-    - name: Build
-      run: swift build
-    - name: Run tests
-      run: swift test
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6"
+      - uses: actions/checkout@v6
+        with:
+          lfs: true
+      - uses: actions/cache@v5
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+      - name: Build
+        run: swift build
+      - name: Run tests
+        run: swift test

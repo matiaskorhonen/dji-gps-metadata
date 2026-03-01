@@ -35,17 +35,17 @@ public struct Extractor {
     return formatter
   }()
 
-  private static let iso8601WithFractionalSeconds: ISO8601DateFormatter = {
+  private static func makeISO8601WithFractionalSecondsFormatter() -> ISO8601DateFormatter {
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return formatter
-  }()
+  }
 
-  private static let iso8601Standard: ISO8601DateFormatter = {
+  private static func makeISO8601StandardFormatter() -> ISO8601DateFormatter {
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withInternetDateTime]
     return formatter
-  }()
+  }
 
   /// Supported source metadata keys mapped to export metadata templates.
   ///
@@ -528,6 +528,8 @@ public struct Extractor {
       return formatQuickTimeDate(date)
     }
 
+    let iso8601WithFractionalSeconds = makeISO8601WithFractionalSecondsFormatter()
+    let iso8601Standard = makeISO8601StandardFormatter()
     if let date = iso8601WithFractionalSeconds.date(from: trimmed)
       ?? iso8601Standard.date(from: trimmed)
     {

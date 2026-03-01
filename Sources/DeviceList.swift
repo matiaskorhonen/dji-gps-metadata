@@ -1,5 +1,5 @@
 /// Represents a known DJI device make and model pair.
-public struct Device: Equatable {
+public struct Device: Equatable, Sendable {
   /// Device manufacturer name.
   public let make: String
   /// Device model name.
