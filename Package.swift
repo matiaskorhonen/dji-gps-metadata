@@ -13,7 +13,6 @@ let package = Package(
   ],
   dependencies: [
     .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.4.0"),
-    .package(url: "https://github.com/apple/swift-testing.git", branch: "main"),
     .package(url: "https://github.com/matiaskorhonen/bamf.git", branch: "main"),
   ],
   targets: [
@@ -38,7 +37,6 @@ let package = Package(
       dependencies: [
         "DJIMetadataCore",
         "DJIMetadataFixer",
-        .product(name: "Testing", package: "swift-testing"),
       ],
       resources: [
         .copy("Resources")
