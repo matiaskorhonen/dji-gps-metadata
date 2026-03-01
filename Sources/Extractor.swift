@@ -487,12 +487,6 @@ public struct Extractor {
       }
     }
 
-    // items.append(item)
-    // items.append(modelItem)
-
-    // TODO: figure out why the make and model aren't being persisted
-    // print(items)
-
     return items
   }
 
