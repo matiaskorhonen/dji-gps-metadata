@@ -105,11 +105,6 @@ public struct Extractor {
       identifier: .quickTimeMetadataCameraIdentifier,
       dataType: kCMMetadataBaseDataType_UTF8 as String
     ),
-    // Model number
-    // "uiso/©mdl": MetadataTemplate(
-    //   identifier: .commonIdentifierModel,
-    //   dataType: kCMMetadataBaseDataType_UTF8 as String
-    // ),
     // DJI telemetry fields persisted as custom mdta keys
     "uiso/©xsp": MetadataTemplate(
       identifier: AVMetadataIdentifier(rawValue: "mdta/com.dji.speed.x"),
