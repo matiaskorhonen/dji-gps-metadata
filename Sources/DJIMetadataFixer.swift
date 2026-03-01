@@ -174,13 +174,19 @@ extension DJIMetadataFixer {
         exportSession.outputFileType = .mov
         exportSession.outputURL = outputURL
 
-        if overwrite {
+        if overwrite && FileManager.default.fileExists(atPath: outputURL.path) {
           var resultingURL: NSURL?
           try FileManager.default.trashItem(at: outputURL, resultingItemURL: &resultingURL)
           print("Moved existing file to Trash (\(resultingURL?.path ?? "—"))")
         }
 
         await exportSession.export()
+
+        guard exportSession.status == .completed else {
+          throw ValidationError(
+            "Export failed for \(url.lastPathComponent): \(exportSession.error?.localizedDescription ?? "Unknown error")"
+          )
+        }
 
         print("Wrote to \(outputURL.path)")
 

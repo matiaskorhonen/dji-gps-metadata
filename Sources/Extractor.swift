@@ -4,36 +4,6 @@ import Bamf
 struct MetadataTemplate {
   var identifier: AVMetadataIdentifier
   var dataType: String
-
-  // func standardDecode(data: Data) -> String? {
-  //   let type = Int(data[0])
-  //   let size = Int(data[1])
-
-  //   guard size > 0 else {
-  //     return nil
-  //   }
-
-  //   guard type == 0 else {
-  //     return nil
-  //   }
-
-  //   let start = 4  // Skip the first four bytes
-  //   let end = 4 + size - 1
-
-  //   if end > data.count {
-  //     return nil
-  //   }
-
-  //   var subdata = data[start..<end]
-  //   let nullEnd = subdata.firstIndex(where: { $0 == 0 }) ?? subdata.endIndex
-  //   subdata = subdata[start..<nullEnd]  // Remove the null bytes
-
-  //   return String(data: subdata, encoding: .ascii)
-  // }
-
-  // func nonStandardDecode(data: Data) -> String {
-  //   return ""
-  // }
 }
 
 public struct Extractor {
@@ -73,25 +43,25 @@ public struct Extractor {
     ),
     // Device make
     "make": MetadataTemplate(
-      identifier: .commonIdentifierMake,
+      identifier: .quickTimeMetadataMake,
       dataType: kCMMetadataBaseDataType_UTF8 as String
     ),
     // Device model
     "model": MetadataTemplate(
-      identifier: .commonIdentifierModel,
+      identifier: .quickTimeMetadataModel,
       dataType: kCMMetadataBaseDataType_UTF8 as String
     ),
     // File comment
     "comment": MetadataTemplate(
-      identifier: .commonIdentifierDescription,
+      identifier: .quickTimeMetadataComment,
       dataType: kCMMetadataBaseDataType_UTF8 as String
     ),
     "title": MetadataTemplate(
-      identifier: .commonIdentifierTitle,
+      identifier: .quickTimeMetadataTitle,
       dataType: kCMMetadataBaseDataType_UTF8 as String
     ),
     "description": MetadataTemplate(
-      identifier: .commonIdentifierDescription,
+      identifier: .quickTimeMetadataDescription,
       dataType: kCMMetadataBaseDataType_UTF8 as String
     ),
     // Serial number (closest native mapping)
@@ -100,10 +70,10 @@ public struct Extractor {
       dataType: kCMMetadataBaseDataType_UTF8 as String
     ),
     // Model number
-    "uiso/©mdl": MetadataTemplate(
-      identifier: .commonIdentifierModel,
-      dataType: kCMMetadataBaseDataType_UTF8 as String
-    ),
+    // "uiso/©mdl": MetadataTemplate(
+    //   identifier: .commonIdentifierModel,
+    //   dataType: kCMMetadataBaseDataType_UTF8 as String
+    // ),
     // DJI telemetry fields persisted as custom mdta keys
     "uiso/©xsp": MetadataTemplate(
       identifier: AVMetadataIdentifier(rawValue: "mdta/com.dji.speed.x"),
@@ -206,7 +176,7 @@ public struct Extractor {
 
             var subdata = data[start..<end]
             let nullEnd = subdata.firstIndex(where: { $0 == 0 }) ?? subdata.endIndex
-            subdata = subdata[start..<nullEnd]  // Remove the null bytes
+            subdata = subdata[subdata.startIndex..<nullEnd]  // Remove the null bytes
 
             // let hex = subdata.reduce("") { $0 + String(format: "%02x ", $1) }
             //   .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -342,20 +312,42 @@ public struct Extractor {
       }
     }
 
-    let items: [AVMetadataItem] = metadata.compactMap { (key: String, value: String) in
-      if let template = self.knownFormats[key] {
-        let item = AVMutableMetadataItem()
-        item.identifier = template.identifier
-        item.value = value as (NSCopying & NSObjectProtocol)
-        item.dataType = template.dataType
-        item.locale = Locale.current
-        item.extraAttributes = nil
-        item.extendedLanguageTag = "und"
+    var items: [AVMetadataItem] = []
 
-        return (item.copy() as! AVMetadataItem)
-      } else {
-        return nil
+    for (key, value) in metadata {
+      guard let template = self.knownFormats[key] else {
+        continue
       }
+
+      if key == "uiso/©xyz" {
+        let location = normalizeISO6709(value)
+
+        let quickTimeMetadataLocation = AVMutableMetadataItem()
+        quickTimeMetadataLocation.identifier = .quickTimeMetadataLocationISO6709
+        quickTimeMetadataLocation.value = location as (NSCopying & NSObjectProtocol)
+        quickTimeMetadataLocation.dataType =
+          kCMMetadataDataType_QuickTimeMetadataLocation_ISO6709 as String
+        items.append(quickTimeMetadataLocation.copy() as! AVMetadataItem)
+
+        let quickTimeUserDataLocation = AVMutableMetadataItem()
+        quickTimeUserDataLocation.identifier = .quickTimeUserDataLocationISO6709
+        quickTimeUserDataLocation.value = location as (NSCopying & NSObjectProtocol)
+        quickTimeUserDataLocation.dataType = kCMMetadataBaseDataType_UTF8 as String
+        items.append(quickTimeUserDataLocation.copy() as! AVMetadataItem)
+
+        continue
+      }
+
+      let item = AVMutableMetadataItem()
+      item.identifier = template.identifier
+      item.value = value as (NSCopying & NSObjectProtocol)
+      item.dataType = template.dataType
+      item.locale = Locale.current
+      item.extraAttributes = nil
+      item.extendedLanguageTag = "und"
+      item.time = CMTime.zero
+      item.duration = CMTime.zero
+      items.append(item.copy() as! AVMetadataItem)
     }
 
     // items.append(item)
@@ -365,5 +357,75 @@ public struct Extractor {
     // print(items)
 
     return items
+  }
+
+  private static func normalizeISO6709(_ value: String) -> String {
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if trimmed.isEmpty {
+      return trimmed
+    }
+
+    let raw = trimmed.hasSuffix("/") ? String(trimmed.dropLast()) : trimmed
+
+    let pattern = #"^([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)?$"#
+    guard let regex = try? NSRegularExpression(pattern: pattern) else {
+      return trimmed.hasSuffix("/") ? trimmed : "\(trimmed)/"
+    }
+
+    let nsRaw = raw as NSString
+    let range = NSRange(location: 0, length: nsRaw.length)
+    guard let match = regex.firstMatch(in: raw, options: [], range: range),
+      match.numberOfRanges >= 3
+    else {
+      return trimmed.hasSuffix("/") ? trimmed : "\(trimmed)/"
+    }
+
+    let latitude = nsRaw.substring(with: match.range(at: 1))
+    let longitude = nsRaw.substring(with: match.range(at: 2))
+    let altitude: String? = {
+      let altitudeRange = match.range(at: 3)
+      guard altitudeRange.location != NSNotFound else {
+        return nil
+      }
+      return nsRaw.substring(with: altitudeRange)
+    }()
+
+    let normalizedLatitude = normalizeISO6709Component(latitude, minimumIntegerDigits: 2)
+    let normalizedLongitude = normalizeISO6709Component(longitude, minimumIntegerDigits: 3)
+    let normalizedAltitude =
+      altitude.map({ normalizeISO6709Component($0, minimumIntegerDigits: 2) }) ?? ""
+
+    return "\(normalizedLatitude)\(normalizedLongitude)\(normalizedAltitude)/"
+
+  }
+
+  private static func normalizeISO6709Component(_ component: String, minimumIntegerDigits: Int)
+    -> String
+  {
+    guard component.count >= 2 else {
+      return component
+    }
+
+    let sign = String(component.prefix(1))
+    let rest = String(component.dropFirst())
+    let parts = rest.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+    let integerPart = String(parts.first ?? "")
+
+    let paddedIntegerPart: String
+    if integerPart.count < minimumIntegerDigits {
+      paddedIntegerPart =
+        String(repeating: "0", count: minimumIntegerDigits - integerPart.count)
+        + integerPart
+    } else {
+      paddedIntegerPart = integerPart
+    }
+
+    if parts.count == 2 {
+      let fractionalPart = String(parts[1])
+      return "\(sign)\(paddedIntegerPart).\(fractionalPart)"
+    }
+
+    return "\(sign)\(paddedIntegerPart)"
   }
 }
