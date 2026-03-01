@@ -11,6 +11,7 @@ The GPS location is extracted from the original MP4 files using exiftool and the
 - Swift 6.2+ toolchain (built-in `Testing` module is used for tests)
 - `swift-argument-parser`
 - `bamf`
+- `ffmpeg`
 
 No external `swift-testing` package dependency is required.
 
